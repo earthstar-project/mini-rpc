@@ -68,7 +68,7 @@ export interface Methods {
 // It intercepts calls to the functions, runs the functions,
 // and returns the results as promises.
 // This essentually does nothing but is useful as a starting point.
-export let makeSimpleProxy = <M>(methods: M) : M => {
+export let makeSimpleProxy = <M extends Methods>(methods: M) : M => {
     let handler = {
         get: function(target: any, prop: any, receiver: any) {
             return async (...args: any[]): Promise<any> => {
@@ -90,7 +90,7 @@ export let makeSimpleProxy = <M>(methods: M) : M => {
 // Return a Response containing the result, or a Response containing an error.
 // This is always an async function no matter if the underlying method
 // is async or not.
-export let evaluateReq = async (methods: any, req: Req): Promise<Res> => {
+export let evaluator = async (methods: Methods, req: Req): Promise<Res> => {
     let fn = methods[req.method];
     if (fn === undefined) {
         // system error: bad method name
@@ -118,44 +118,14 @@ export let evaluateReq = async (methods: any, req: Req): Promise<Res> => {
         };
     }
 }
+type EvaluatorFn = typeof evaluator;
 
-// Make a proxy around a Methods object.
+// Make a proxy around a Methods object and an evaluator function.
 // This proxy converts the call to a Req, evaluates it
-// using evaluateReq to get a Res, then converts the
-// Res back into a regular return value or error throw.
-// This is a blueprint for a proxy that sends requests
-// over the network.
-export let makeFancyProxy = <M>(methods: M) : M => {
-    let handler = {
-        get: function(target: any, prop: any, receiver: any) {
-            return async (...args: any[]): Promise<any> => {
-                logHandler(`calling ${prop}(${args})`);
-                let req: Req = {
-                    id: makeId(),
-                    method: prop,
-                    args: args,
-                }
-                logHandler('    req:', req);
-
-                logHandler('    ...');
-                let res: Res = await evaluateReq(methods, req);
-                logHandler('    ...');
-
-                logHandler('    res promise has resolved', res);
-                if (res.err) {
-                    logHandler(' ~ ~ ~> ', res.err.message);
-                    throw new Error(res.err.stack + '\n   ---');
-                } else {
-                    logHandler('    -->', res.result);
-                    return res.result;
-                }
-            }
-        }
-    };
-    return new Proxy(methods, handler) as M;
-}
-
-export let makeFancyProxy2 = <M>(methods: M, evaluator: any) : M => {
+// using the evaluator function to get a Res, then converts the
+// Res back into a regular return value or throws the error
+// if there is one.
+export let makeProxy = <M extends Methods>(methods: M, evaluator: EvaluatorFn) : M => {
     let handler = {
         get: function(target: any, prop: any, receiver: any) {
             return async (...args: any[]): Promise<any> => {
@@ -187,9 +157,12 @@ export let makeFancyProxy2 = <M>(methods: M, evaluator: any) : M => {
 //================================================================================
 // SPECIFIC METHODS
 
-// a Methods object
+// a Methods object.
+// Don't mark this as the Methods type -- if you do that, it will
+// make it more generic and it will lose the ability
+// to type-check the specific methods you have here.
 
-export let myMethods : Methods = {
+export let myMethods = {
     doubleSync: (x: number) => { return x * 2; },
     doubleAsync: async (x: number) => { return x * 2; },
     add: async (x: number, y: number) => { return x + y; },
@@ -207,7 +180,7 @@ export let myMethods : Methods = {
 //================================================================================
 
 let main = async () => {
-    const proxy = makeFancyProxy(myMethods);
+    const proxy = makeSimpleProxy(myMethods);
     log();
     logMain('doubleSync(123)');
     let a = await proxy.doubleSync(123);
@@ -235,13 +208,17 @@ let main = async () => {
     log();
     logMain('the end');
 
-    //proxy.hello(123);
-    //proxy.add(1);
-    //proxy.add(1, 2, 3);
-    //proxy.double('foo');
+    /*
+    // these should all be errors
+    proxy.hello(123);  // wrong type
+    proxy.add(1);  // not enough args
+    proxy.add(1, 2, 3);  // too many args
+    proxy.doubleSync('foo');  // wrong type
+    proxy.nosuch();  // no such method
+    */
 }
 let main2 = async () => {
-    const proxy = makeFancyProxy(myMethods);
+    const proxy = makeSimpleProxy(myMethods);
     logMain('doubleSync');
     let aP = proxy.doubleSync(123);
     logMain('addSlowly');

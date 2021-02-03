@@ -1,17 +1,16 @@
 import * as http from 'http';
 
-import { 
-    myMethods,
-    evaluateReq,
-    Req,
-    Methods,
-    Res,
-    makeFancyProxy2,
-} from './mini-rpc';
 import { logHttpClient, logMain } from './util';
+import { 
+    Methods,
+    Req,
+    Res,
+    makeProxy,
+    myMethods,
+} from './mini-rpc';
 
-let makeHttpEvaluator = (hostname: string, path: string, port: number) => {
-    return async (methods: Methods, rpcReq: Req) => {
+let makeHttpEvaluator = (hostname: string, path: string, port: number)  => {
+    return async (methods: Methods, rpcReq: Req): Promise<Res> => {
         return new Promise((resolve, reject) => {
             let PORT = 8123;
             let postData = JSON.stringify(rpcReq);
@@ -45,6 +44,7 @@ let makeHttpEvaluator = (hostname: string, path: string, port: number) => {
             });
             request.on('error', (err) => {
                 logHttpClient('request error:', err.message);
+                reject(err);
             });
             request.write(postData);
             request.end();
@@ -56,9 +56,13 @@ let makeHttpEvaluator = (hostname: string, path: string, port: number) => {
 
 let main = async () => {
     let httpEvaluator = makeHttpEvaluator('localhost', '/rpc', 8123);
-    let proxy = makeFancyProxy2(myMethods, httpEvaluator);
+    let proxy = makeProxy(myMethods, httpEvaluator);
     logMain('asking for addSlowly...');
-    let answer = await proxy.addSlowly(1, 2);
-    logMain('...answer is', answer);
+    try {
+        let answer = await proxy.divide(1, 0);
+        logMain('...answer is', answer);
+    } catch (err) {
+        logMain('error:', err.message);
+    }
 };
 main();

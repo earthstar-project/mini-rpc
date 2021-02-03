@@ -1,11 +1,11 @@
 import * as http from 'http';
 
-import { 
-    myMethods,
-    evaluateReq,
-    Methods,
-} from './mini-rpc';
 import { logHttpServer } from './util';
+import { 
+    Methods,
+    evaluator,
+    myMethods,
+} from './mini-rpc';
 
 //================================================================================
 
@@ -27,7 +27,7 @@ let httpRpcServer = (methods: Methods, port: number) => {
 
                 logHttpServer('incoming rpc req:', rpcReq);
 
-                let rpcRes = await evaluateReq(methods, rpcReq);
+                let rpcRes = await evaluator(methods, rpcReq);
 
                 logHttpServer('rpc result:', rpcRes);
 
