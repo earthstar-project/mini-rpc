@@ -1,0 +1,5 @@
+{
+  "id": "12345",
+  "method": "addSlowly",
+  "args": [1, 2]
+}
