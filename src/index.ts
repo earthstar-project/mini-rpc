@@ -34,7 +34,7 @@ let errToObj = (err: Error): Err => {
 // It has a random unique ID, the name of the method, and a list of arguments.
 
 // Each request will make one corresponding Response (officially called Res in the code).
-// It has as matching id, the same method name, and either a result or an error.
+// It has as matching id and either a result or an error.
 // The error is a node Error class that's been squashed down to a regular JSON-friendly
 // object (see errToObj).
 
@@ -50,16 +50,16 @@ interface Res {
     err?: Err,  // or an error.
 }
 
-/*
-a Methods object is a plain object containing functions, like:
-    let myMethods = {
-        addSync: (x: number, y: number) => x+y,
-        addAsync: async (x: number, y: number) => x+y,
-    }
-Both sync and async functions are allowed.  All will be exposed as
-async functions by the RPC system.
-*/
-// TODO: make a type for Methods
+// a Methods object is a plain object containing functions, like:
+//     let myMethods = {
+//         addSync: (x: number, y: number) => x+y,
+//         addAsync: async (x: number, y: number) => x+y,
+//     }
+// Both sync and async functions are allowed.  All will be exposed as
+// async functions by the RPC system.
+interface Methods {
+    [name: string]: (...args: any[]) => any,
+}
 
 //================================================================================
 // MACHINERY
@@ -160,7 +160,7 @@ let makeFancyProxy = <M>(methods: M) : M => {
 
 // a Methods object
 
-let myMethods = {
+let myMethods : Methods = {
     doubleSync: (x: number) => { return x * 2; },
     add: async (x: number, y: number) => { return x + y; },
     addSlowly: async (x: number, y: number) => {
