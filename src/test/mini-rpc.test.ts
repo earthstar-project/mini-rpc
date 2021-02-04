@@ -7,13 +7,13 @@ import {
     logTestExpect,
     logTestMark,
     sleep,
-} from '../util';
+} from '../lib/util';
 import {
     evaluator,
     makeProxy,
     makeSimpleProxy,
     myMethods
-} from '../mini-rpc';
+} from '../lib/mini-rpc';
 
 //================================================================================
 

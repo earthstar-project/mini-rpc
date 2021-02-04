@@ -1,9 +1,9 @@
-import { logMain } from './util';
+import { logMain } from './lib/util';
 import { 
     makeProxy,
     myMethods,
-} from './mini-rpc';
-import { makeHttpEvaluator } from './http-client';
+} from './lib/mini-rpc';
+import { makeHttpEvaluator } from './lib/http-client';
 
 //================================================================================
 
@@ -12,7 +12,7 @@ let main = async () => {
     let proxy = makeProxy(myMethods, httpEvaluator);
     logMain('asking for addSlowly...');
     try {
-        let answer = await proxy.divide(1, 0);
+        let answer = await proxy.addSlowly(1, 2);
         logMain('...answer is', answer);
     } catch (err) {
         logMain('error:', err.message);
