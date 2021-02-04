@@ -121,9 +121,9 @@ let five = await proxy.addSlowly(2, 3);
 
 The Proxy converts the function call to a `Req` object like this:
 
-```json
+```js
 {
-    "id": "123456",  // a random string
+    "id": "123456789012345",  // a random string
     "method": "addSlowly",
     "args": [2, 3]
 }
@@ -131,9 +131,9 @@ The Proxy converts the function call to a `Req` object like this:
 
 The proxy hands that to an `evaluator` function, whose job is to turn Requests into Responses by running the function.  It returns a `Res` object:
 
-```json
+```js
 {
-    "id": "123456",  // matches the request id
+    "id": "123456789012345",  // matches the request's id
     "result": 5
 }
 ```
@@ -146,7 +146,7 @@ If a method throws an error, the evaluator packs the error into the `Res` object
 
 ```json
 {
-    "id": "123456",
+    "id": "123456789012345",
     "err": {
         "code": "ERR_VALUE_OUT_OF_RANGE",
         "message": "Value out of range",
