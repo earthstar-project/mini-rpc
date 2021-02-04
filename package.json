@@ -1,5 +1,5 @@
 {
-  "name": "mini-rpc",
+  "name": "@earthstar-project/mini-rpc",
   "version": "0.0.1",
   "description": "A small simple RPC framework built in Typescript.",
   "author": "Cinnamon <cinnamon_npm@fastmail.com>",
