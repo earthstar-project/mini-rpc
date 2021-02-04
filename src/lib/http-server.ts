@@ -9,7 +9,7 @@ import {
 //================================================================================
 
 export let startHttpRpcServer = (methods: Methods, port: number) => {
-    http.createServer((request: http.IncomingMessage, response: http.ServerResponse) => {
+    let server = http.createServer((request: http.IncomingMessage, response: http.ServerResponse) => {
         logHttpServer(`${request.method} ${request.url}`);
 
         if (request.method === 'POST' && request.url === '/rpc') {
@@ -40,4 +40,5 @@ export let startHttpRpcServer = (methods: Methods, port: number) => {
     }).listen(port);
 
     logHttpServer('serving on', port);
+    return server;
 };
