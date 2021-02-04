@@ -16,11 +16,31 @@ No dependencies except `tap` and `chalk` for debugging.
 
 It's almost the same.  But I plan to extend this to allow streaming and maybe pubsub-style subscriptions.
 
+## Install
+
+It's [@earthstar-project/mini-rpc](https://www.npmjs.com/package/@earthstar-project/mini-rpc) on NPM
+
+```sh
+npm install --save @earthstar-project/mini-rpc
+  or
+yarn add @earthstar-project/mini-rpc
+```
+
+```ts
+import {
+    Req,
+    Res,
+    makeProxy,
+    evaluator
+} from '@earthstar-project/mini-rpc';
+```
+
 ## How it works
 
 You provide an object containing some functions you want to expose.  We call this the `Methods` object.
 
 ```ts
+// example Methods object
 let myMethods = {
     // These can be sync or async functions.
     doubleSync: (x: number) => { return x * 2; },
