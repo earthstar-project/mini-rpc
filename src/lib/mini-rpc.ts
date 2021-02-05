@@ -248,7 +248,7 @@ export let myMethods = {
     ok2: (x: any, y: any) => { return 'ok'; },
     doubleSync: (x: number) => { return x * 2; },
     doubleAsync: async (x: number) => { return x * 2; },
-    add: async (x: number, y: number) => { return x + y; },
+    add: (x: number, y: number) => { return x + y; },
     addSlowly: async (x: number, y: number) => {
         await sleep(1000);
         return x + y;
@@ -257,5 +257,5 @@ export let myMethods = {
         if (y === 0) { throw new MyError('divide by zero'); }
         return x / y;
     },
-    hello: async (name: string) => { return `Hello ${name}`; },
+    hello: (name: string) => { return `Hello ${name}`; },
 };
