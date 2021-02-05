@@ -2,17 +2,11 @@ import t = require('tap');
 //t.runOnly = true;
 
 import {
-    logTest,
-    logTestLog,
-    logTestExpect,
-    logTestMark,
     sleep,
     logMain,
 } from '../lib/util';
 import {
-    evaluator,
     makeProxy,
-    makeSimpleProxy,
     myMethods
 } from '../lib/mini-rpc';
 import { makeHttpEvaluator } from '../lib/http-client';
@@ -32,10 +26,10 @@ t.test('http', async (t: any) => {
     let httpEvaluator = makeHttpEvaluator('localhost', '/rpc', PORT);
     let proxy = makeProxy(myMethods, httpEvaluator);
     t.equal(await proxy.addSlowly(1, 2), 3, 'addSlowly over HTTP');
-    t.done();
 
     await sleep(100);
     logMain('stopping server');
     server.close();
 
+    t.done();
 });

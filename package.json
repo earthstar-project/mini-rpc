@@ -18,6 +18,7 @@
     "start-client": "VERBOSE=true node build/http-client-demo.js",
     "start-local-demo": "VERBOSE=true node build/local-demo.js",
     "test": "tap -Rspecy --jobs=1 build/test/*.test.js",
+    "test-mini-rpc": "tap -Rspecy --jobs=1 build/test/mini-rpc.test.js",
     "test-coverage": "npm test -- --coverage-report=lcov",
     "prepublishOnly": "npm run clean && npm run build"
   },

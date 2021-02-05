@@ -24,9 +24,45 @@ export let logTestMark =   (...args: any[]) => nop(chalk.black.bgWhite(  'test '
 export let logTestLog =    (...args: any[]) => nop(chalk.black.bgWhite(  'test ') + chalk.black.bgGreenBright('log   '), ...args);
 export let logTestExpect = (...args: any[]) => nop(chalk.black.bgWhite(  'test ') + chalk.black.bgRedBright(  'expect'), ...args);
 
+//================================================================================
+
+export let showError = (error: Error): void => {
+    console.log(chalk.red('/') + ' class', error.constructor.name);
+    console.log(chalk.red('|') + ' name', error.name);
+    console.log(chalk.red('|') + ' message', error.message);
+    console.log(chalk.red('\\') + ' stack', error.stack);
+}
 
 //================================================================================
 // HELPERS
+
+export let arrayToNumberedObject = (arr: any[]) => {
+    // convert an array into an object like {'0': 'first item', '1': 'next item', ... }
+    let result: {[k: string]: any} = {};
+    for (let ii = 0; ii < arr.length; ii++) {
+        result[ii] = arr[ii];
+    }
+    return result;
+}
+export let numberedObjectToArray = (obj: {[k: string]: any}): any[] => {
+    // given an object with numbered keys starting at zero,
+    // convert it into an array.
+    // array slots that were not present in the input will be undefined.
+    let arr = [];
+
+    for (let key of Object.keys(obj)) {
+        let index = +key;
+        if (!isNaN(index)) {
+            arr[index] = obj[key];
+        }
+    }
+    // fill in empty slots with actual undefineds
+    for (let ii = 0; ii < arr.length; ii++) {
+        arr[ii] = arr[ii];
+    }
+
+    return arr;
+}
 
 export let sleep = async (ms : number) : Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -34,8 +70,9 @@ export let sleep = async (ms : number) : Promise<void> => {
     });
 }
 
+// inclusive of endpoints
 export let randInt = (lo: number, hi: number): number => 
-    lo + Math.floor(Math.random() * hi-lo);
+    lo + Math.floor(Math.random() * (hi-lo));
 
 export let makeId = (): string =>
     ('' + randInt(0, 999999999999999)).padStart(15, '0');
