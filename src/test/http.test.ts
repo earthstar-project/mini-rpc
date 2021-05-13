@@ -7,8 +7,10 @@ import {
 } from '../lib/util';
 import {
     makeProxy,
-    myMethods
 } from '../lib/mini-rpc';
+import {
+    myMethods,  // some example methods to play with
+} from './things-to-test';
 import { makeHttpEvaluator } from '../lib/http-client';
 import { startHttpRpcServer } from '../lib/http-server';
 

@@ -1,13 +1,11 @@
 export {
     ERROR_CLASSES,
-    MyError,  // used by the example myMethods
     Req,
     Res,
     UndefinedNotAllowedError,
     errorToString,
     evaluator,
     makeProxy,
-    myMethods,  // some example methods to play with
     stringToError,
 } from './lib/mini-rpc';
 

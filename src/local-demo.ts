@@ -5,8 +5,10 @@ import {
 import {
     evaluator,
     makeProxy,
-    myMethods
 } from './lib/mini-rpc';
+import {
+    myMethods,
+} from './test/things-to-test';
 
 //================================================================================
 

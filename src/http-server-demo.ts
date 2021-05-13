@@ -1,6 +1,6 @@
-import { 
-    myMethods,
-} from './lib/mini-rpc';
+import {
+    myMethods,  // some example methods to play with
+} from './test/things-to-test';
 import { startHttpRpcServer } from './lib/http-server';
 import { logMain } from './lib/util';
 

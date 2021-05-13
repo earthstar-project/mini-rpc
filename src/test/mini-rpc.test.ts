@@ -3,15 +3,17 @@ import t = require('tap');
 
 import {
     Methods,
-    MyError,
-    MyError2,
     Req,
     Res,
     UndefinedNotAllowedError,
     evaluator,
     makeProxy,
-    myMethods,
 } from '../lib/mini-rpc';
+import {
+    MyError,
+    MyError2,
+    myMethods,
+} from './things-to-test';
 
 //================================================================================
 
