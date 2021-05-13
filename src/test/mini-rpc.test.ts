@@ -55,6 +55,13 @@ for (let [evallerName, evaller] of evallers) {
         t.done();
     });
 
+    t.test(`${evallerName}: binding class methods`, async (t: any) => {
+        let myClass = new MyClass();
+        let proxy = makeProxy(myClass, evaller);
+        t.deepEqual(await proxy.getClassVar(), 123, 'getClasssVar');
+        t.done();
+    });
+
     t.test(`${evallerName}: custom error handling: registered`, async (t: any) => {
         let proxy = makeProxy(myFunctions, evaller);
         try {

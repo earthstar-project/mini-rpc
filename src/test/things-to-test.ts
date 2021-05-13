@@ -47,6 +47,12 @@ export let myFunctions = {
 };
 
 export class MyClass {
+    classVar: number = 123;
+
+    constructor() {}
+
+    getClassVar() { return this.classVar; }
+
     identity(x: any) { return x; }
     identity2(x: any, y: any) { return [x, y]; }
     returnUndefined() {}

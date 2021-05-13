@@ -146,7 +146,14 @@ export let evaluator = async (functions: any, req: Req): Promise<Res> => {
     }
     try {
         logEvaluator(`calling ${JSON.stringify(req.method)}...`);
-        let result = await fn(...req.args);
+        // call the function.
+        // we need to make sure "this" is correctly handled, since we've extracted
+        // the fn from its context.
+        // 3 equivalent ways of doing it:
+        //    * up above, let fn = functions[req.method].bind(functions)
+        //    * here, fn.call(functions, ...req.args)
+        //    * here, functions[req.method](...req.args)
+        let result = await fn.call(functions, ...req.args);
         logEvaluator(`called  ${JSON.stringify(req.method)}... complete`);
         return {
             id: req.id,
