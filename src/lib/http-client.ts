@@ -7,15 +7,15 @@ import {
     Res,
 } from './mini-rpc';
 
+// '/rpc' is a good choice for path
 export let makeHttpEvaluator = (hostname: string, path: string, port: number)  => {
     return async (methods: Methods, rpcReq: Req): Promise<Res> => {
         return new Promise((resolve, reject) => {
-            let PORT = 8123;
             let postData = JSON.stringify(rpcReq);
             let opts = {
-                hostname: 'localhost',
-                path: '/rpc',
-                port: 8123,
+                hostname,
+                path,
+                port,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

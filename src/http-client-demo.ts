@@ -10,7 +10,12 @@ import { makeHttpEvaluator } from './lib/http-client';
 //================================================================================
 
 let main = async () => {
-    let httpEvaluator = makeHttpEvaluator('localhost', '/rpc', 8123);
+    let HOSTNAME = 'localhost';
+    let PORT = 8077;
+    let PATH = '/rpc';
+    let URL = `http://${HOSTNAME}${PATH}:${PORT}`;
+
+    let httpEvaluator = makeHttpEvaluator(HOSTNAME, PATH, PORT);
     let proxy = makeProxy(myMethods, httpEvaluator);
     logMain('asking for addSlowly...');
     try {

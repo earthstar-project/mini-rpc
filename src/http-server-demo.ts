@@ -6,5 +6,10 @@ import { logMain } from './lib/util';
 
 //================================================================================
 
-logMain('starting http server on http://localhost:8123');
-startHttpRpcServer(myMethods, 8123);
+let HOSTNAME = 'localhost';
+let PORT = 8077;
+let PATH = '/rpc';
+let URL = `http://${HOSTNAME}${PATH}:${PORT}`;
+
+logMain('starting http server on ' + URL);
+startHttpRpcServer(myMethods, PATH, PORT);

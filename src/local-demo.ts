@@ -22,21 +22,24 @@ import {
 
 let main = async () => {
     const proxy = makeProxy(myMethods, evaluator);
+
     logMain('doubleSync');
-    let aP = proxy.doubleSync(123);
+    let aP = proxy.doubleSync(123);  // returns a promise
+
     logMain('addSlowly');
     let bP = proxy.addSlowly(1, 2);
+
     logMain('hello');
     let cP = proxy.hello('Simon');
 
-    logMain('awaiting...');
+    logMain('awaiting all the promises...');
     log();
     let [a, b, c] = await Promise.all([aP, bP, cP]);
     logMain('...done awaiting');
 
-    logMain('doubleSync', a);
-    logMain('addSlowly', b);
-    logMain('hello', c);
+    logMain('doubleSync =', a);
+    logMain('addSlowly =', b);
+    logMain('hello =', c);
 
     logMain('the end');
 

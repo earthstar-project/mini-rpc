@@ -17,17 +17,20 @@ import { startHttpRpcServer } from '../lib/http-server';
 //================================================================================
 
 t.test('http', async (t: any) => {
-    let PORT = 8123;
+    let HOSTNAME = 'localhost';
+    let PORT = 8077;
+    let PATH = '/rpc';
+    let URL = `http://${HOSTNAME}${PATH}:${PORT}`;
 
-    logMain('starting http server on http://localhost:' + PORT);
-    let server = startHttpRpcServer(myMethods, PORT);
+    logMain(`starting http server on ${URL}`);
+    let server = startHttpRpcServer(myMethods, PATH, PORT);
 
     await sleep(100);
 
-    logMain('making request from client');
-    let httpEvaluator = makeHttpEvaluator('localhost', '/rpc', PORT);
+    logMain(`making request from client to ${URL}`);
+    let httpEvaluator = makeHttpEvaluator(HOSTNAME, PATH, PORT);
     let proxy = makeProxy(myMethods, httpEvaluator);
-    t.equal(await proxy.addSlowly(1, 2), 3, 'addSlowly over HTTP');
+    t.equal(await proxy.addSlowly(1, 2), 3, 'addSlowly over HTTP returns correct answer');
 
     await sleep(100);
     logMain('stopping server');

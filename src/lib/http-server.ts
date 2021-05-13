@@ -8,11 +8,12 @@ import {
 
 //================================================================================
 
-export let startHttpRpcServer = (methods: Methods, port: number) => {
+// '/rpc' is a good choice for path
+export let startHttpRpcServer = (methods: Methods, path: string, port: number) => {
     let server = http.createServer((request: http.IncomingMessage, response: http.ServerResponse) => {
         logHttpServer(`${request.method} ${request.url}`);
 
-        if (request.method === 'POST' && request.url === '/rpc') {
+        if (request.method === 'POST' && request.url === path) {
             let body = '';
             request.on('data', data => { body += data });
             request.on('end', async () => {
