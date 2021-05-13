@@ -6,3 +6,5 @@ build/test/
 build/example*
 tsconfig.json
 .vscode/
+addSlowly.json
+post.sh
