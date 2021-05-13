@@ -4,6 +4,7 @@ import t = require('tap');
 import {
     Methods,
     MyError,
+    MyError2,
     Req,
     Res,
     UndefinedNotAllowedError,
@@ -42,15 +43,31 @@ for (let [evallerName, evaller] of evallers) {
         t.done();
     });
 
-    t.test(`${evallerName}: custom error handling`, async (t: any) => {
+    t.test(`${evallerName}: custom error handling: registered`, async (t: any) => {
         let proxy = makeProxy(myMethods, evaller);
         try {
-            await proxy.divide(1, 0);
-            t.fail('divide by zero throws an error');
+            await proxy.throwMyError();
+            t.fail('should throw an error');
         } catch (error) {
-            t.pass('divide by zero throws an error');
+            t.pass('should throw an error');
             t.strictEqual(error.name, 'MyError', 'error has the correct name');
+            t.strictEqual(error.message, 'text of error', 'error has the correct message');
             t.true(error instanceof MyError, 'error has the correct actual class');
+            //showError(error);
+        }
+        t.done();
+    });
+
+    t.test(`${evallerName}: custom error handling: not registered`, async (t: any) => {
+        let proxy = makeProxy(myMethods, evaller);
+        try {
+            await proxy.throwMyError2();
+            t.fail('should throw an error2');
+        } catch (error) {
+            t.pass('should throw an error2');
+            t.strictEqual(error.name, 'MyError2', 'error has the correct name');
+            t.strictEqual(error.message, 'text of error2', 'error has the correct message');
+            t.false(error instanceof MyError2, 'error does not have the correct actual class, because it is not registered');
             //showError(error);
         }
         t.done();

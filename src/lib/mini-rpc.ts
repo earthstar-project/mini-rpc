@@ -233,6 +233,13 @@ export class MyError extends Error {
         this.name = 'MyError';
     }
 }
+// This one is not put into ERROR_CLASSES
+export class MyError2 extends Error {
+    constructor(message?: string) {
+        super(message);
+        this.name = 'MyError2';
+    }
+}
 ERROR_CLASSES.push(MyError);
 
 // an example Methods object.
@@ -258,4 +265,6 @@ export let myMethods = {
         return x / y;
     },
     hello: (name: string) => { return `Hello ${name}`; },
+    throwMyError: () => { throw new MyError('text of error'); },
+    throwMyError2: () => { throw new MyError2('text of error2'); },
 };
