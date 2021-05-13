@@ -1,5 +1,5 @@
 import {
-    myMethods,  // some example methods to play with
+    myFunctions,  // some example functions to play with
 } from './test/things-to-test';
 import { startHttpRpcServer } from './lib/http-server';
 import { logMain } from './lib/util';
@@ -12,4 +12,4 @@ let PATH = '/rpc';
 let URL = `http://${HOSTNAME}${PATH}:${PORT}`;
 
 logMain('starting http server on ' + URL);
-startHttpRpcServer(myMethods, PATH, PORT);
+startHttpRpcServer(myFunctions, PATH, PORT);

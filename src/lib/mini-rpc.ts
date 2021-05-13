@@ -2,7 +2,6 @@ import {
     logEvaluator,
     logHandler,
     makeId,
-    sleep,
 } from './util';
 
 //================================================================================
@@ -26,24 +25,13 @@ export interface Res {
     err?: string,  // or an error.
 }
 
-// a Methods object is a plain object containing your functions, like:
-//     let myMethods = {
-//         addSync: (x: number, y: number) => x + y,
-//         addAsync: async (x: number, y: number) => x + y,
-//     }
-// Both sync and async functions are allowed.  All will be exposed as
-// async functions by the RPC system.
-export interface Methods {
-    [name: string]: (...args: any[]) => any,
-}
-
 //================================================================================
 // UNDEFINED
 
 // Important rules about undefined:
 // --------------------------------
 // Don't use undefined anywhere in the arguments or return values of
-// your methods.  Use null instead.
+// your functions.  Use null instead.
 // Reason: Undefined can't survive a round-trip through JSON.
 // Exception: a method can return undefined, since that's such a common case,
 //  so we've made sure it works end-to-end.
@@ -117,13 +105,13 @@ export let stringToError = (s: string): Error => {
 
 //================================================================================
 
-// This basic proxy wraps around a Methods object.
+// This basic proxy wraps around a object-of-functions or a class instance.
 // It intercepts calls to the functions, runs the functions,
 // and returns the results as promises.
 // This essentually does nothing but is useful as an educational starting point.
 // It never even creates Req or Res objects.
 // Don't use this in production :)
-let makeSimpleProxy = <M extends Methods>(methods: M) : M => {
+let makeSimpleProxy = <Fns>(functions: Fns) : Fns => {
     let handler = {
         get: function(target: any, prop: any, receiver: any) {
             return async (...args: any[]): Promise<any> => {
@@ -135,18 +123,18 @@ let makeSimpleProxy = <M extends Methods>(methods: M) : M => {
             }
         }
     };
-    return new Proxy(methods, handler) as M;
+    return new Proxy(functions, handler) as Fns;
 }
 
 //================================================================================
 
-// Given a Methods object and a specific Request,
+// Given a object-of-functions or class instance, and a specific Request,
 // exectute the request by calling the corresponding method.
 // Return a Response containing the result, or a Response containing an error.
 // This is always an async function no matter if the underlying method
 // is async or not.
-export let evaluator = async (methods: Methods, req: Req): Promise<Res> => {
-    let fn = methods[req.method];
+export let evaluator = async (functions: any, req: Req): Promise<Res> => {
+    let fn = functions[req.method];
     if (fn === undefined) {
         // rpc user error: bad method name
         let err = new Error(`unknown RPC method: ${JSON.stringify(req.method)}`);
@@ -176,12 +164,12 @@ export let evaluator = async (methods: Methods, req: Req): Promise<Res> => {
 }
 type EvaluatorFn = typeof evaluator;
 
-// Make a proxy around a Methods object and an evaluator function.
+// Make a proxy around a object-of-functions or class instance, and an evaluator function.
 // This proxy converts the call to a Req, evaluates it
 // using the evaluator function to get a Res, then converts the
 // Res back into a regular return value or throws the error
 // if there is one.
-export let makeProxy = <M extends Methods>(methods: M, evaluator: EvaluatorFn) : M => {
+export let makeProxy = <Fns>(functions: Fns, evaluator: EvaluatorFn) : Fns => {
     let handler = {
         get: function(target: any, prop: any, receiver: any) {
             return async (...args: any[]): Promise<any> => {
@@ -202,7 +190,7 @@ export let makeProxy = <M extends Methods>(methods: M, evaluator: EvaluatorFn) :
                 logHandler('    req:', req);
 
                 logHandler('    evaluating...');
-                let res: Res = await evaluator(methods, req);
+                let res: Res = await evaluator(functions, req);
                 logHandler('    ...done evaluating, res is:', res);
 
                 if (res.err) {
@@ -227,5 +215,5 @@ export let makeProxy = <M extends Methods>(methods: M, evaluator: EvaluatorFn) :
             }
         }
     };
-    return new Proxy(methods, handler) as M;
+    return new Proxy(functions, handler) as Fns;
 }

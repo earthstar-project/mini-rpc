@@ -2,14 +2,13 @@ import * as http from 'http';
 
 import { logHttpServer } from './util';
 import { 
-    Methods,
     evaluator,
 } from './mini-rpc';
 
 //================================================================================
 
 // '/rpc' is a good choice for path
-export let startHttpRpcServer = (methods: Methods, path: string, port: number) => {
+export let startHttpRpcServer = (functions: any, path: string, port: number) => {
     let server = http.createServer((request: http.IncomingMessage, response: http.ServerResponse) => {
         logHttpServer(`${request.method} ${request.url}`);
 
@@ -27,7 +26,7 @@ export let startHttpRpcServer = (methods: Methods, path: string, port: number) =
 
                 logHttpServer('incoming rpc req:', rpcReq);
 
-                let rpcRes = await evaluator(methods, rpcReq);
+                let rpcRes = await evaluator(functions, rpcReq);
 
                 logHttpServer('rpc result:', rpcRes);
 

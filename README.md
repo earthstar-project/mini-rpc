@@ -6,6 +6,12 @@ Lets you run code on remote computers as if it was local.
 
 Follows a request-response model but does not assume that either side is a "client" or "server" -- both sides can make requests.
 
+## Why not just use JSON-RPC?
+
+It's very similar, we may eventually converge towards JSON-RPC.  But I plan to extend this to allow streaming and maybe pubsub-style subscriptions.
+
+For comparison, I added JSON-RPC as typescript types in [json-rpc.ts](https://github.com/earthstar-project/mini-rpc/blob/main/src/lib/json-rpc.ts).  These are not used anywhere, only provided for comparison.
+
 ## Design Goals
 
 * Simplest possible protocol: peers send requests and responses to each other as JSON objects
@@ -18,6 +24,7 @@ Follows a request-response model but does not assume that either side is a "clie
 
 * Pure Typescript with good type propagation through your code.
 * No dependencies except `typescript`, and `tap` and `chalk` for testing.
+    * The HTTP demo code uses the built-in node `http` package; we should remove this...
 * Good test coverage.
 
 ## Important caveat about undefined values
@@ -27,10 +34,6 @@ Because JSON doesn't support `undefined` values, don't use `undefined` anywhere 
 If you use it in a function argument, mini-rpc will helpfully throw a `UndefinedNotAllowedError`.
 
 However, it IS allowed as the one single return value of a function, e.g. a function that "doesn't return anything".  Since that's such a common use case, we've made it work.  But don't try to return [1, 2, undefined] or anything like that.
-
-## Why not just use JSON-RPC
-
-It's very similar to this.  But I plan to extend this to allow streaming and maybe pubsub-style subscriptions.
 
 # Install
 
@@ -53,11 +56,13 @@ import {
 
 # How it works
 
-You provide some functions you want to expose to the network, stored in a single object.  We call this the `Methods` object.
+You provide some functions you want to expose to the network, stored in a single object.  We call this the `functions` object.
+
+You can also use a class instance instead of an object-of-functions.
 
 ```ts
-// example Methods object
-let myMethods = {
+// example functions object
+let myFunctions = {
 
     // These can be sync or async functions.
     // They will all be converted to async functions by
@@ -85,23 +90,23 @@ let myMethods = {
 };
 ```
 
-We're going to make a Javascript proxy object that stands in for this Methods object but intercepts the calls and runs code on a distant computer.
+We're going to make a Javascript proxy object that stands in for this `functions` object but intercepts the calls and runs code on a distant computer.
 
 ```ts
 // EXAMPLE CLIENT CODE
 
-// The proxy object is a stand-in for the methods object,
+// The proxy object is a stand-in for the functions object,
 // but it runs the functions on some other computer.
 // You control the network details by providing a different
 // evaluator (explained later).
-let proxy = makeProxy(myMethods, evaluator);
+let proxy = makeProxy(myFunctions, evaluator);
 
 // Call a function through the proxy.
 let five = await proxy.addSlowly(2, 3);  // --> 5
 
-// All methods have been made async
+// All functions have been made async
 // to allow for networking to happen,
-// even if they were defined as sync methods.
+// even if they were defined as synchronous functions.
 let doubled = await proxy.doubleSync(123);  // --> 456
 
 // Typescript checks the types correctly.  This is an error:
@@ -118,7 +123,31 @@ try (
 }
 ```
 
+## Using a class instead of an object-full-of-functions
+
+```ts
+class MyClass {
+    double(x: number): number {
+        return x * 2
+    }
+}
+
+let myInstance = new MyClass();
+
+let proxy = makeProxy(myInstance, evaluator);
+
+let six = await proxy.double(3);  // all methods were made async
+```
+
 ## The moving parts
+
+We have two confusingly named types `Req` and `Res` which are not the same as the built-in HTTP Req and Res.  They're JSON representations of your function call, and its result.
+
+The proxy object converts the function calls to `Req` objects (it "reifies" them).
+
+The Evaluator runs the function, probably on a different computer.
+
+Finally the proxy object converts the `Res` object back into a result, or throws an error if there was an error.
 
 ```
 Proxy object            Evaluator function
@@ -135,16 +164,17 @@ from the Res, or
 throw the error
 ```
 
-A proxy wraps around your `Methods` object and intercepts the function calls.
+A proxy wraps around your functions or class, and intercepts the function calls.
 
 ```ts
-let proxy = makeProxy(myMethods, evaluator);
+let proxy = makeProxy(myFunctions, evaluator);
 let five = await proxy.addSlowly(2, 3);
 ```
 
 The Proxy converts the function call to a `Req` object like this:
 
 ```js
+// a Req
 {
     "id": "123456789012345",  // a random string
     "method": "addSlowly",
@@ -155,6 +185,7 @@ The Proxy converts the function call to a `Req` object like this:
 The proxy hands that to an `evaluator` function, whose job is to turn Requests into Responses by running the function.  It returns a `Res` object:
 
 ```js
+// a Res
 {
     "id": "123456789012345",  // matches the request's id
     "result": 5
@@ -163,20 +194,23 @@ The proxy hands that to an `evaluator` function, whose job is to turn Requests i
 
 The proxy takes that `Res` and returns the value as normal to your local code.
 
+The Req and Res types are defined right at the top of [mini-rpc.ts](https://github.com/earthstar-project/mini-rpc/blob/main/src/lib/mini-rpc.ts).  Read the comments there for more details.
+
 ## Error handling
 
 If a method throws an error, the error is squished into a simple string in the format "ErrorName: message".  The stack trace is discarded.
 
 ```json
+// a Res with an error
 {
     "id": "123456789012345",
     "err": "TypeError: something went wrong",
 }
 ```
 
-...and when it arrives back to your local proxy, the error is thrown again in your local code.
+...and when it arrives back to your local proxy, the error is reconstructed into an actual `Error` and thrown again in your local code.
 
-If you have custom error classes, add them to the global singleton list of error classes.  Then your errors will be re-created as the correct class instead of the generic Error class:
+If you have custom error classes, add them to the global singleton list of error classes.  Then your errors will be re-created as the correct class instead of the generic `Error` class:
 
 ```ts
 import {
@@ -208,13 +242,16 @@ Example:
 
 * `http-server.ts` -- Run a HTTP server.  It accepts `Req` objects by POST, runs them through the normal `evaluator` function, and sends the `Res` back out.
 
-Obviously both computers will need to have matching expectations about the `Methods` they're both trying to talk about.
+Obviously both computers will need to have matching expectations about the functions or class they're both trying to talk about.  The client side can have a stubbed-out version of the class.
 
 > Note, these http examples were written with only the built-in node `http` library so they're verbose and intimidating, but they could be much shorter if we used something like `express`.
 
 Remember we use `Req` and `Res` as the names for our JSON objects, not to be confused with typical HTTP terminology.
 
 ```
+                                    (network
+                                    boundary)
+                                        |
 proxy object            httpEvaluator   |  http server     evaluator
 -----------------       -------------   |  -----------     ---------
 when a function                         |
@@ -222,7 +259,7 @@ is called, turn                         |
 it into a Req   --Req-->                |
                         convert to JSON |
                         POST to server -|->
-                                        |  handle POST
+                                        |  receive POST
                                         |  parse JSON  -->
                                         |                  given Req,
                                         |                  run the
@@ -237,10 +274,11 @@ it into a Req   --Req-->                |
 return the value                        |
 from the Res, or                        |
 throw the error                         |
-                               (network | boundary)
 ```
 
-To build a plugin for some kind of network, your job is to build the two middle columns of this diagram: a new evaluator function which sends/receives `Req` and `Res` objects over the network, and a network server or listener that runs the normal evaluator function.
+To build a plugin for some kind of network, your job is to build the two middle columns of this diagram
+* a new evaluator function which sends and receives `Req` and `Res` objects over the network, and serializes/deserializses them (probably to JSON)
+* a network server or listener that runs the normal built-in `evaluator` function.
 
 # Demos
 

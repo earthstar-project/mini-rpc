@@ -7,7 +7,7 @@ import {
     makeProxy,
 } from './lib/mini-rpc';
 import {
-    myMethods,
+    myFunctions,
 } from './test/things-to-test';
 
 //================================================================================
@@ -21,7 +21,7 @@ import {
 // VERBOSE=true node build/local-demo.js
 
 let main = async () => {
-    const proxy = makeProxy(myMethods, evaluator);
+    const proxy = makeProxy(myFunctions, evaluator);
 
     logMain('doubleSync');
     let aP = proxy.doubleSync(123);  // returns a promise
@@ -45,7 +45,7 @@ let main = async () => {
 
     /*
     // These should all be type errors
-    // inferred from the myMethods object.
+    // inferred from the myFunctions object.
     proxy.hello(123);  // wrong type
     proxy.add(1);  // not enough args
     proxy.add(1, 2, 3);  // too many args

@@ -9,7 +9,7 @@ import {
     makeProxy,
 } from '../lib/mini-rpc';
 import {
-    myMethods,  // some example methods to play with
+    myFunctions,  // some example functions to play with
 } from './things-to-test';
 import { makeHttpEvaluator } from '../lib/http-client';
 import { startHttpRpcServer } from '../lib/http-server';
@@ -23,13 +23,13 @@ t.test('http', async (t: any) => {
     let URL = `http://${HOSTNAME}${PATH}:${PORT}`;
 
     logMain(`starting http server on ${URL}`);
-    let server = startHttpRpcServer(myMethods, PATH, PORT);
+    let server = startHttpRpcServer(myFunctions, PATH, PORT);
 
     await sleep(100);
 
     logMain(`making request from client to ${URL}`);
     let httpEvaluator = makeHttpEvaluator(HOSTNAME, PATH, PORT);
-    let proxy = makeProxy(myMethods, httpEvaluator);
+    let proxy = makeProxy(myFunctions, httpEvaluator);
     t.equal(await proxy.addSlowly(1, 2), 3, 'addSlowly over HTTP returns correct answer');
 
     await sleep(100);

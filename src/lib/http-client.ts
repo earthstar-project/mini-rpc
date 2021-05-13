@@ -2,14 +2,15 @@ import * as http from 'http';
 
 import { logHttpClient } from './util';
 import { 
-    Methods,
     Req,
     Res,
 } from './mini-rpc';
 
 // '/rpc' is a good choice for path
 export let makeHttpEvaluator = (hostname: string, path: string, port: number)  => {
-    return async (methods: Methods, rpcReq: Req): Promise<Res> => {
+    // functions is unused here because we're sending requests over the network,
+    // never calling the functions in this code
+    return async (functions: any, rpcReq: Req): Promise<Res> => {
         return new Promise((resolve, reject) => {
             let postData = JSON.stringify(rpcReq);
             let opts = {
