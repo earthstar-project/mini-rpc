@@ -10,9 +10,14 @@ if (process.env.VERBOSE) {
 }
 
 // main is always printed
-export let logMain =       (...args: any[]) => log(         chalk.black.bgWhite(     'main') + '        ', ...args);
+export let logMain =       (...args: any[]) => log(         chalk.black.bgWhite(     'main') + '               ', ...args);
 
 // the rest are optional
+export let logPeerClient =      (...args: any[]) => log(' ' + chalk.black.bgCyanBright('peerClient') + '        ', ...args);
+export let logPeerServer =      (...args: any[]) => log('    ' + chalk.black.bgCyan('peerServer') + '     ', ...args);
+export let logTransportClient = (...args: any[]) => log('  ' + chalk.black.bgGreenBright('transportClient') + '  ', ...args);
+export let logTransportServer = (...args: any[]) => log('   ' + chalk.black.bgGreen('transportServer') + ' ', ...args);
+
 export let logHandler =    (...args: any[]) => nop(' '   + chalk.black.bgCyanBright('handler') + '    ', ...args);
 export let logEvaluator =  (...args: any[]) => nop('  ' + chalk.black.bgGreen(     'evaluator') + ' ', ...args);
 
