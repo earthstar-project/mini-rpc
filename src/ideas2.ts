@@ -3,7 +3,7 @@ import { logMain, logPeerClient, logPeerServer, logTransportClient, logTransport
 //================================================================================
 // TYPES
 
-type Thunk = () => {};
+type Thunk = () => void;
 
 interface Flag {
     value: boolean,
@@ -16,12 +16,17 @@ class RemoteError extends Error {
     }
 } 
 
+// sent by the PeerClient
 interface PacketRequest {
     id: string,
     method: string,
     args: any[],
 }
+interface PacketUnsubscribe {
+    id: string,
+}
 
+// sent by the PeerServer
 interface PacketResponseOneShot {
     id: string,
     value: any;
@@ -55,7 +60,9 @@ type PacketResponse =
 //================================================================================
 
 class PeerClient {
+    activeStreamIds: Set<string>;
     constructor(public fns: any, public transport: TransportLocalClient) {
+        this.activeStreamIds = new Set<string>();
     }
     async callOneShot(method: string, ...args: any[]) {
         let packetRequest: PacketRequest = {
@@ -70,6 +77,17 @@ class PeerClient {
             throw new RemoteError(packetResponse.error);
         }
         return packetResponse.value;
+    }
+    async callStream(method: string, ...args: any[]): Promise<Thunk> {
+        // TODO
+        // - add this call id to our set of active stream ids
+        // - start the stream by sending a request packet
+        // - set up a handler for incoming stream data
+        //   - this should ignore packets that are not in the set of active stream ids
+        // - return an unsubscribe thunk which will:
+        //   - remove the call id from our set of active stream ids
+        //   - send an unsubscribe packet which makes the server shut down the stream
+        return () => {}
     }
 }
 
