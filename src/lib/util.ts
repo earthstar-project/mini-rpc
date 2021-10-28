@@ -48,3 +48,7 @@ export let randInt = (lo: number, hi: number): number =>
 
 export let makeId = (): string =>
     ('' + randInt(0, 999999999999999)).padStart(15, '0');
+    
+export let isGenerator = (fn: any) =>
+    ["GeneratorFunction", "AsyncGeneratorFunction"]
+        .includes(fn.constructor.name);

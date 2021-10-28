@@ -3,10 +3,10 @@ import t = require('tap');
 
 import {
     Req,
-    Res,
     UndefinedNotAllowedError,
     evaluator,
     makeProxy,
+    EvaluatorFn
 } from '../lib/mini-rpc';
 import {
     MyClass,
@@ -17,14 +17,16 @@ import {
 
 //================================================================================
 
-let jsonEvaluator = async (functions: any, req: Req): Promise<Res> => {
-    // a custom evaluator that takes the Req and Res objects
+async function* jsonEvaluator(functions: any, req: Req) {
+    // a custom evaluator that takes the Req and Packet objects
     // on a round-trip through JSON, for testing,
     // since this will usually happen when going over the network.
     req = JSON.parse(JSON.stringify(req));
-    let res = await evaluator(functions, req);
-    res = JSON.parse(JSON.stringify(res));
-    return res;
+    
+    for await(const packet of evaluator(functions, req)) {
+        const parsedPacket = JSON.parse(JSON.stringify(packet));
+        yield parsedPacket;
+    }
 }
 
 //================================================================================
@@ -58,7 +60,7 @@ for (let [evallerName, evaller] of evallers) {
     t.test(`${evallerName}: binding class methods`, async (t: any) => {
         let myClass = new MyClass();
         let proxy = makeProxy(myClass, evaller);
-        t.deepEqual(await proxy.getClassVar(), 123, 'getClasssVar');
+        t.deepEqual(await proxy.getClassVar(), 123, 'getClassVar');
         t.done();
     });
 
@@ -170,4 +172,83 @@ for (let [evallerName, evaller] of evallers) {
         t.done();
     });
 
+    t.test(`${evallerName}: generators`, async (t: any) => {
+        let proxy = makeProxy(myFunctions, evaller);
+        
+        let results0 = [];
+        
+        for await (const result of proxy.generator0()) {
+            results0.push(result);
+        }
+        
+        t.deepEqual(results0, [0, 1, 2, 3, 4, 5]);
+        
+        let results1 = [];
+        
+        for await (const result of proxy.generator1(4)) {
+            results1.push(result);
+        }
+        
+        t.deepEqual(results1, [0, 1, 2, 3, 4]);
+        
+        let results2 = []
+        
+        for await (const result of proxy.generator2(4, 3)) {
+            results2.push(result);
+        }
+        
+        t.deepEqual(results2, [0, 1, 2, 3]);
+        
+        try {
+            for await (const result of proxy.generatorError()) {
+                //console.log(result)
+            };         
+        } catch (error) {
+            t.pass('should throw an error from generator');
+            t.strictEqual(error.name, 'MyError', 'error has the correct name');
+            t.strictEqual(error.message, "can't count higher than 5", 'error has the correct message');
+            t.true(error instanceof MyError, 'error has the correct actual class');
+        }
+    })
+    
+    
+    t.test(`${evallerName}: generators with a class`, async (t: any) => {
+        let proxy = makeProxy(new MyClass(), evaller);
+        
+        let results0 = [];
+        
+        for await (const result of proxy.generator0()) {
+            results0.push(result);
+        }
+        
+        t.deepEqual(results0, [0, 1, 2, 3, 4, 5]);
+        
+        let results1 = [];
+        
+        for await (const result of proxy.generator1(4)) {
+            results1.push(result);
+        }
+        
+        t.deepEqual(results1, [0, 1, 2, 3, 4]);
+        
+        let results2 = []
+        
+        for await (const result of proxy.generator2(4, 3)) {
+            results2.push(result);
+        }
+        
+        t.deepEqual(results2, [0, 1, 2, 3]);
+        
+        try {
+            for await (const result of proxy.generatorError()) {
+                //console.log(result)
+            };         
+        } catch (error) {
+            t.pass('should throw an error from generator');
+            t.strictEqual(error.name, 'MyError', 'error has the correct name');
+            t.strictEqual(error.message, "can't count higher than 5", 'error has the correct message');
+            t.true(error instanceof MyError, 'error has the correct actual class');
+        } 
+        })
+    
 };
