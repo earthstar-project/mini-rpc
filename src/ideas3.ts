@@ -169,13 +169,15 @@ class LocalTransport implements ITransport {
 
     peer: IPeer | null = null;
 
-    // send a packet and wait for the one corresponding packet
     _checkForPeer(): void {
         if (this.peer === null) { throw new Error('no peer is registered'); }
     }
     async call(packetCall: PacketCall): Promise<PacketData | PacketError> {
         logTransportC('call():', JSON.stringify(packetCall));
+
+        // this would do a fetch() to its remote counterpart instead of calling itself
         let packetResult = await this.executeCall(packetCall);
+
         logTransportC('got back:', JSON.stringify(packetResult));
         logTransportC('...call is done.');
         return packetResult;
