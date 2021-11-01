@@ -17,7 +17,8 @@ export let logMain =      (...args: any[]) => log('' + chalk.black.bgWhite(     
 export let logClient =    (...args: any[]) => log(' ' + chalk.black.bgYellowBright( 'client') + '       ', ...args);
 export let logTransport = (...args: any[]) => log('  ' + chalk.black.bgCyanBright(   'transport') + '   ', ...args);
 export let logServer =    (...args: any[]) => log('            ' + chalk.black.bgYellow(       'server') + '    ', ...args);
-export let logFunction =  (...args: any[]) => log('             ' + chalk.black.bgGrey(         'fn') + '       ', ...args);
+export let logThread =    (...args: any[]) => log('             ' + chalk.black.bgYellowBright(         'thread') + '   ', ...args);
+export let logFunction =  (...args: any[]) => log('              ' + chalk.black.bgGrey(         'fn') + '      ', ...args);
 
 //================================================================================
 // utils
@@ -158,10 +159,13 @@ class LocalTransport implements ITransport {
     async send(packet: Obj): Promise<void> {
         logTransport(this.debugName, 'send()');
         logTransport(this.debugName, JSON.stringify(packet));
-        await this._otherTransport._handleReceive(packet);
+        setTimeout(() => {
+            this._otherTransport._handleReceive(packet);
+        }, 1);
         logTransport(this.debugName, '...send() done.');
     }
     async _handleReceive(packet: Obj): Promise<void> {
+        logTransport(this.debugName, '-------------------------------');
         logTransport(this.debugName, '_handleReceive()');
         logTransport(this.debugName, JSON.stringify(packet));
         if (this._onReceiveCb === null) { return; }
@@ -240,6 +244,7 @@ class RpcClient implements IRpcClient {
             // close the chan on the input side, so it can still drain if consumer is slow
             streamInfo.chan.seal();
             this._streams.delete(packet.id);
+            logClient('_handleIncomingPacket(): ...sealed');
         } else if (packet.kind === 'STREAM_CANCELLED') {
             // if stream was cancelled, it was because we asked it to,
             // and we've already deleted the state and closed the chan.
@@ -282,18 +287,28 @@ class RpcClient implements IRpcClient {
         };
         this._streams.set(id, streamInfo);
 
+        /*
+        // TODO: it doesn't work to have the user close the chan to cancel the stream,
+        // because the chan also gets closed when the stream ends naturally and is drained.
+        // We need to either:
+        //    * also return a Thunk for cancelling the stream, or
+        //    * add an event to the Chan code for when a stream is manually closed, not auto-closed b/c of being sealed
+        // 
+
         // set up a way to cancel the stream.
         // TODO: chan doesn't have an event for when it's closed,
         // so for now we have to poll.
         logClient(`startStream(): starting to poll for chan being closed, which will cancel the stream`);
         let poll = setInterval(async () => {
-            if (chan.isClosed) {
+            logClient('                                         polling', chan.isClosed);
+            if (chan.isClosed && !chan.isSealed) {
                 // the client-user closed the channel, so let's cancel the stream.
                 logClient('startStream(): polling detected the chan was closed.  cancelling the stream.');
                 clearInterval(poll);
                 this._cancelStream(id);
             }
         }, 100);
+        */
 
         logClient('startStream(): sending START_STREAM packet and not waiting for response:');
         let packetStartStream: PacketStartStream = {
@@ -372,12 +387,58 @@ class RpcServer implements IRpcServer {
             logServer('_handleIncomingPacket(): sending response:');
             logServer(JSON.stringify(packetResponse));
             await this.transport.send(packetResponse);
+
+        } else if (packet.kind === 'START_STREAM') {
+            let id = packet.id;
+            if (this._streams[packet.method] === undefined) {
+                logServer('warning: got a stream request with unknown method.  ignoring it.', packet.method);
+            }
+            // TODO: bind?
+            let iterator = this._streams[packet.method](...packet.args);
+
+            let packetStreamStarted: PacketStreamStarted = {
+                kind: 'STREAM_STARTED',
+                id: packet.id,
+            }
+            logServer('_handleIncomingPacket(): sending STREAM_STARTED:');
+            logServer(JSON.stringify(packetStreamStarted));
+            await this.transport.send(packetStreamStarted);
+
+            // now that we've sent STREAM_STARTED we can start running the stream iterator thread.
+            logServer('_handleIncomingPacket(): starting the stream thread...');
+            let thread = async () => {
+                logThread('stream thread: starting');
+                for await (let item of (iterator as any)) {
+                    logThread('stream thread: got', item);
+                    let packetStreamData: PacketStreamData = {
+                        kind: 'STREAM_DATA',
+                        id,
+                        data: item,
+                    }
+                    logThread('stream thread: sending STREAM_DATA:');
+                    logThread(JSON.stringify(packetStreamData));
+                    await this.transport.send(packetStreamData);
+                }
+                logThread('stream thread: iteration ended naturally');
+                let packetStreamEnded: PacketStreamEnded = {
+                    kind: 'STREAM_ENDED',
+                    id,
+                }
+                logThread('stream thread: sending STREAM_ENDED');
+                await this.transport.send(packetStreamEnded);
+                logThread('stream thread: ...done');
+            };
+            // launch stream on its own timeline in the next tick
+            setTimeout(thread, 0);
+
+        } else if (packet.kind === 'CANCEL_STREAM') {
+            throw new Error('CANCEL_STREAM is not implemented yet (TODO)');
+
         } else {
-            // TODO: handle START_STREAM, CANCEL_STREAM
-            // - actually run the stream
-            // - cancel as needed
-            logServer('warning: got a request with unknown kind.  ignoring it.', packet.id);
+            // TODO: handle CANCEL_STREAM
+            logServer('warning: got a request with unknown kind.  ignoring it.', (packet as any).id);
         }
+
         logServer('..._handleIncomingPacket() is done.');
     }
     onRequest(cb: (method: string, args: any[]) => Promise<any>): Thunk {
@@ -431,12 +492,13 @@ let main = async () => {
     let rpcServer = new RpcServer(localTransportForServer, myFunctions, myStreams);
 
     /*
+    //----------------------------------------
     // test request-response
 
     logMain('double(3)');
     let p1 = rpcClient.request('doubleSlowly', 3);
 
-    logMain('client waiting request ids:', [...rpcClient._waitingRequests.keys()]);
+    logMain('(client waiting request ids:)', [...rpcClient._waitingRequests.keys()]);
 
     //logMain('double(4)');
     //let p2 = rpcClient.request('doubleSlowly', 4);
@@ -447,19 +509,38 @@ let main = async () => {
     logMain('...double(3) = ', result1);
     //logMain('...double(4) = ', result2);
 
-    logMain('client waiting request ids:', [...rpcClient._waitingRequests.keys()]);
+    logMain('(client waiting request ids:)', [...rpcClient._waitingRequests.keys()]);
     */
 
+    //----------------------------------------
     // test streams
-    // TODO
 
-    let chan = rpcClient.startStream('streamIntegers', 1000, 4);
-    chan.forEach(packet => {
+    logMain('starting stream');
+    let chan = rpcClient.startStream('streamIntegers', 100, 3);
+    logMain('...starting stream is done.');
+    //while (true) {
+    //    let packet = await chan.get();
+    //    logMain('chan got packet:', JSON.stringify(packet));
+    //    if (packet.kind === 'STREAM_ENDED') {
+    //        break;
+    //    }
+    //}
+    logMain('reading stream:');
+    await chan.forEach(packet => {
         logMain('chan got packet:', JSON.stringify(packet));
     });
+    logMain('...reading stream is done.');
+    logMain(chan.isClosed);
+    logMain(chan.isSealed);
+    logMain(chan.isIdle);
+    logMain(chan.itemsInQueue);
+    logMain(chan.itemsInQueueAndWaitingPuts);
+    logMain(chan.numWaitingGets);
 
-    await sleep(2500);
-    chan.close();
+    logMain('...main is done.');
+
+    //await sleep(2500);
+    //chan.close();
 
 }
 main();
