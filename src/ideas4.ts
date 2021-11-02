@@ -140,7 +140,7 @@ interface ITransport {
 
 interface IRpcClient {
     request(method: string, ...args: any[]): Promise<PacketResponse | PacketError>,
-    startStream(method: string, ...args: any[]): Chan<ServerPacket>,  // close the chan to cancel stream
+    startStream(method: string, ...args: any[]): { chan: Chan<ServerPacket>, cancelStream: () => Promise<void> },
 }
 
 interface IRpcServer {
@@ -274,7 +274,7 @@ class RpcClient implements IRpcClient {
         logClient(`...request(): done.`);
         return deferred.promise;
     }
-    startStream(method: string, ...args: any[]): Chan<ServerPacket> {
+    startStream(method: string, ...args: any[]): { chan: Chan<ServerPacket>, cancelStream: () => Promise<void> } {
         logClient(`startStream(): ${method} ${JSON.stringify(args)}`);
         let id = makeId();
 
@@ -322,9 +322,12 @@ class RpcClient implements IRpcClient {
         this.transport.send(packetStartStream);
         logClient(`...startStream(): done.`);
 
-        return chan;
+        return {
+            chan,
+            cancelStream: async () => await this._cancelStream(id),
+        };
     }
-    _cancelStream(id: string): void {
+    async _cancelStream(id: string): Promise<void> {
         logClient(`_cancelStream("${id}")`);
 
         // close the chan, if it's not closed already
@@ -342,14 +345,15 @@ class RpcClient implements IRpcClient {
         // and we want to discard those)
         this._streams.delete(id)
 
-        // tell the server to stop the stream, and don't wait for it to reply
-        logClient('_cancelStream(): sending CANCEL_STREAM packet and not waiting for response:');
+        // tell the server to stop the stream.
+        // the client-user may choose not to await this if they don't care about confirming it
+        logClient('_cancelStream(): sending CANCEL_STREAM packet:');
         let packetCancelStream: PacketCancelStream = {
             kind: 'CANCEL_STREAM',
             id,
         }
         logClient(JSON.stringify(packetCancelStream));
-        this.transport.send(packetCancelStream);
+        await this.transport.send(packetCancelStream);
         logClient(`..._cancelStream(): done.`);
     }
 }
@@ -360,6 +364,7 @@ class RpcServer implements IRpcServer {
     _onRequestCb: null | ((method: string, args: any[]) => Promise<any>) = null;
     _fns: Fns;
     _streams: Fns;
+    _runningStreamIds: Set<string> = new Set();
     constructor(public transport: ITransport, fns: Fns, streams: Fns) {
         this._fns = fns;
         this._streams = streams;
@@ -390,6 +395,7 @@ class RpcServer implements IRpcServer {
 
         } else if (packet.kind === 'START_STREAM') {
             let id = packet.id;
+            this._runningStreamIds.add(id);
             if (this._streams[packet.method] === undefined) {
                 logServer('warning: got a stream request with unknown method.  ignoring it.', packet.method);
             }
@@ -398,7 +404,7 @@ class RpcServer implements IRpcServer {
 
             let packetStreamStarted: PacketStreamStarted = {
                 kind: 'STREAM_STARTED',
-                id: packet.id,
+                id,
             }
             logServer('_handleIncomingPacket(): sending STREAM_STARTED:');
             logServer(JSON.stringify(packetStreamStarted));
@@ -409,6 +415,19 @@ class RpcServer implements IRpcServer {
             let thread = async () => {
                 logThread('stream thread: starting');
                 for await (let item of (iterator as any)) {
+                    // check if stream was cancelled
+                    if (!this._runningStreamIds.has(id)) {
+                        logThread('stream thread: user cancelled the stream.  stopping the thread and sending STREAM_CANCELLED back.');
+                        let packetStreamCancelled: PacketStreamCancelled = {
+                            kind: 'STREAM_CANCELLED',
+                            id,
+                        }
+                        logThread('stream thread: sending STREAM_CANCELLED');
+                        await this.transport.send(packetStreamCancelled);
+                        logThread('stream thread: ...done');
+                        return;
+                    }
+                    // otherweise, send the latest data
                     logThread('stream thread: got', item);
                     let packetStreamData: PacketStreamData = {
                         kind: 'STREAM_DATA',
@@ -420,6 +439,7 @@ class RpcServer implements IRpcServer {
                     await this.transport.send(packetStreamData);
                 }
                 logThread('stream thread: iteration ended naturally');
+                this._runningStreamIds.delete(id);
                 let packetStreamEnded: PacketStreamEnded = {
                     kind: 'STREAM_ENDED',
                     id,
@@ -432,10 +452,17 @@ class RpcServer implements IRpcServer {
             setTimeout(thread, 0);
 
         } else if (packet.kind === 'CANCEL_STREAM') {
-            throw new Error('CANCEL_STREAM is not implemented yet (TODO)');
+            logThread('cancelling stream', packet.id);
+            if (this._runningStreamIds.has(packet.id)) {
+                // we just have to delete the id from our list
+                // and then the thread will notice and terminate itself
+                this._runningStreamIds.delete(packet.id);
+            } else {
+                logThread('warning: cancel_stream was given an unknown id.  ignoring it.', packet.id);
+            }
 
         } else {
-            // TODO: handle CANCEL_STREAM
+            let x: never = packet;  // ensure all the packet kinds are handled, above
             logServer('warning: got a request with unknown kind.  ignoring it.', (packet as any).id);
         }
 
@@ -479,9 +506,9 @@ let main = async () => {
             for (let ii = 0; ii < limit; ii++) {
                 logFunction('streamIntegers sleeping, about to send', ii);
                 await sleep(sleepInterval)
-                logFunction('...streamIntegers sending', ii);
-                yield ii;
-                logFunction('...streamIntegers sent', ii);
+                logFunction('...streamIntegers returning', ii);
+                yield ii;  // TODO: yields should return false if the stream is cancelled, so we can do cleanup
+                logFunction('...streamIntegers returned', ii);
             }
             logFunction('...streamIntegers: ended naturally.');
         }
@@ -516,8 +543,9 @@ let main = async () => {
     // test streams
 
     logMain('starting stream');
-    let chan = rpcClient.startStream('streamIntegers', 100, 3);
+    let { chan, cancelStream } = rpcClient.startStream('streamIntegers', 1000, 5);
     logMain('...starting stream is done.');
+
     //while (true) {
     //    let packet = await chan.get();
     //    logMain('chan got packet:', JSON.stringify(packet));
@@ -525,10 +553,17 @@ let main = async () => {
     //        break;
     //    }
     //}
+
     logMain('reading stream:');
-    await chan.forEach(packet => {
+    await chan.forEach(async (packet: ServerPacket) => {
         logMain('chan got packet:', JSON.stringify(packet));
+        if (packet.kind === 'STREAM_DATA' && packet.data === 3) {
+            logMain('cancelling stream');
+            await cancelStream();
+            logMain('...cancelling stream: done.');
+        }
     });
+
     logMain('...reading stream is done.');
     logMain(chan.isClosed);
     logMain(chan.isSealed);
