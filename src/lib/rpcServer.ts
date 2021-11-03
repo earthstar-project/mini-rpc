@@ -36,6 +36,14 @@ export class RpcServer implements IRpcServer {
             await this._handleIncomingPacket(packet as ClientPacket);
         });
     }
+    async _sendError(id: string, error: string): Promise<void> {
+        let packetError: PacketError = {
+            kind: 'ERROR',
+            id,
+            error,
+        }
+        await this.transport.send(packetError);
+    }
     async _handleIncomingPacket(packet: ClientPacket): Promise<void> {
         logServer('_handleIncomingPacket()');
         logServer(JSON.stringify(packet));
@@ -45,6 +53,7 @@ export class RpcServer implements IRpcServer {
             ClientPacket.parse(packet);
         } catch (err) {
             logServer('packet failed validation.  ignoring it.', packet);
+            await this._sendError(packet.id, 'Packet failed validation')
             return;
         }
 
@@ -52,6 +61,7 @@ export class RpcServer implements IRpcServer {
             let method = this._fns[packet.method];
             if (method === undefined) {
                 logServer('warning: got a request with unknown method.  ignoring it.', packet.method);
+                await this._sendError(packet.id, `Unknown function or method: ${packet.method}`)
                 return;
             }
             logServer('_handleIncomingPacket(): actually calling the function...');
@@ -70,6 +80,7 @@ export class RpcServer implements IRpcServer {
             let id = packet.id;
             if (this._streams[packet.method] === undefined) {
                 logServer('warning: got a stream request with unknown method.  ignoring it.', packet.method);
+                await this._sendError(packet.id, `Unknown stream function or method: ${packet.method}`)
                 return;
             }
             this._runningStreamIds.add(id);
@@ -132,13 +143,16 @@ export class RpcServer implements IRpcServer {
                 // and then the thread will notice and terminate itself
                 this._runningStreamIds.delete(packet.id);
             } else {
-                logThread('warning: cancel_stream was given an unknown id.  ignoring it.', packet.id);
+                logThread('warning: unknown id for CANCEL_STREAM.  ignoring it.', packet.id);
+                await this._sendError(packet.id, `CANCEL_STREAM was given an unknown id: ${packet.id}`)
                 return;
             }
 
         } else {
             let x: never = packet;  // ensure all the packet kinds are handled, above
-            logServer('warning: got a request with unknown kind.  ignoring it.', (packet as any).id);
+            let packet2 = packet as any as ServerPacket;  // but we still need to work with it
+            logServer('warning: got a request with unknown kind.  ignoring it.', packet2.kind);
+            await this._sendError(packet2.id, `Packet with unknown kind: ${packet2.kind}`)
             return;
         }
 
