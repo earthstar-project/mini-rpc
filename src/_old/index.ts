@@ -17,7 +17,7 @@ export {
 
 export {
     makeHttpEvaluator,
-} from './lib/http-client';
+} from './_old/http-client';
 
 export {
     startHttpRpcServer,

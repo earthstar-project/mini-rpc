@@ -1,5 +1,5 @@
 {
-  "exclude":  ["node_modules", "build", "old", "ignore"],
+  "exclude":  ["node_modules", "build", "_old", "src/_old", "ignore"],
   "compilerOptions": {
     /* Basic Options */
     // "incremental": true,                   /* Enable incremental compilation */
