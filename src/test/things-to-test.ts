@@ -1,6 +1,7 @@
-import { ERROR_CLASSES } from '../lib/mini-rpc';
+//import { ERROR_CLASSES } from '../lib/mini-rpc';
 import { sleep } from '../lib/util';
 
+/*
 //================================================================================
 // custom errors
 
@@ -19,6 +20,7 @@ export class MyError2 extends Error {
     }
 }
 ERROR_CLASSES.push(MyError);
+*/
 
 //================================================================================
 // example object-of-functions
@@ -38,12 +40,12 @@ export let myFunctions = {
         return x + y;
     },
     divide: async (x: number, y: number) => {
-        if (y === 0) { throw new MyError('divide by zero'); }
+        if (y === 0) { throw new Error('divide by zero'); }
         return x / y;
     },
     hello: (name: string) => { return `Hello ${name}`; },
-    throwMyError: () => { throw new MyError('text of error'); },
-    throwMyError2: () => { throw new MyError2('text of error2'); },
+    throwMyError: () => { throw new Error('text of error'); },
+    throwMyError2: () => { throw new Error('text of error2'); },
 };
 
 export class MyClass {
@@ -67,10 +69,10 @@ export class MyClass {
         return x + y;
     }
     async divide (x: number, y: number) {
-        if (y === 0) { throw new MyError('divide by zero'); }
+        if (y === 0) { throw new Error('divide by zero'); }
         return x / y;
     }
     hello(name: string) { return `Hello ${name}`; }
-    throwMyError() { throw new MyError('text of error'); }
-    throwMyError2() { throw new MyError2('text of error2'); }
+    throwMyError() { throw new Error('text of error'); }
+    throwMyError2() { throw new Error('text of error2'); }
 };

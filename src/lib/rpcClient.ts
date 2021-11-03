@@ -102,6 +102,7 @@ export class RpcClient implements IRpcClient {
             throw new Error(`Error from server: ${packet.error}`);
         } else {
             logClient('warning: got a response with unknown kind.  ignoring it.', (packet as any).kind);
+            return;
         }
         logClient('..._handleIncomingPacket(): done');
     }
