@@ -66,7 +66,7 @@ export class RpcClient implements IRpcClient {
             logClient('_handleIncomingPacket(): STREAM_STARTED');
             let streamInfo = this._streams.get(packet.id);
             if (streamInfo === undefined) {
-                logClient('warning: got a STREAM_ENDED with unknown id.  ignoring it.', packet.id);
+                logClient('warning: got a STREAM_STARTED with unknown id.  ignoring it.', packet.id);
                 return;
             }
             await streamInfo.chan.put(packet);
@@ -74,7 +74,7 @@ export class RpcClient implements IRpcClient {
             logClient('_handleIncomingPacket(): STREAM_DATA -- putting into the chan');
             let streamInfo = this._streams.get(packet.id);
             if (streamInfo === undefined) {
-                logClient('warning: got a STREAM_ENDED with unknown id.  ignoring it.', packet.id);
+                logClient('warning: got a STREAM_DATA with unknown id.  ignoring it.', packet.id);
                 return;
             }
             await streamInfo.chan.put(packet);
@@ -99,7 +99,8 @@ export class RpcClient implements IRpcClient {
             logClient('_handleIncomingPacket(): STREAM_CANCELLED -- nothing to do');
         } else if (packet.kind === 'ERROR') {
             logClient('_handleIncomingPacket(): ERROR packet:', JSON.stringify(packet));
-            throw new Error(`Error from server: ${packet.error}`);
+            let deferred = this._waitingRequests.get(packet.id);
+            deferred?.reject(new Error(`Error from server: ${packet.error}`));
         } else {
             logClient('warning: got a response with unknown kind.  ignoring it.', (packet as any).kind);
             return;

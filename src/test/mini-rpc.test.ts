@@ -13,7 +13,6 @@ import {
 } from './things-to-test';
 
 t.test(`basics using an object-of-functions`, async (t: any) => {
-
     let [transportForClient, transportForServer] = makePairOfTransportLocal();
     let rpcClient = new RpcClient(transportForClient);
     let rpcServer = new RpcServer(transportForServer, myFunctions, {});
@@ -23,14 +22,21 @@ t.test(`basics using an object-of-functions`, async (t: any) => {
     t.deepEqual(await rpcClient.request('addSlowly', 1, 2), 3, 'addSlowly');
     t.deepEqual(await rpcClient.request('hello', 'Susan'), 'Hello Susan', 'hello');
 
-    /*
+    t.done();
+});
+
+t.test(`error from server is re-thrown on client`, async (t: any) => {
+    let [transportForClient, transportForServer] = makePairOfTransportLocal();
+    let rpcClient = new RpcClient(transportForClient);
+    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
+
+    let msg = 'should get error from server when there is no such function'
     try {
-        t.deepEqual(await rpcClient.request('noSuchFunction', 1), 2, 'no such function');
-        t.fail('bad');
+        let no = await rpcClient.request('noSuchFunction', 1);
+        t.fail(msg);
     } catch (err) {
-        t.pass('good');
+        t.pass(msg);
     }
-    */
 
     t.done();
 });
