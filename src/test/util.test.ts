@@ -21,8 +21,8 @@ t.test('randInt', async (t: any) => {
 t.test('makeId', async (t: any) => {
     let passed = true;
     for (let ii = 0; ii < 1000; ii++) {
-        if (makeId().length !== 15) { passed = false; }
+        if (makeId().length !== 18) { passed = false; }
     }
-    t.ok(passed, 'makeId is always 15 characters long');
+    t.ok(passed, 'makeId is always 18 characters long');
     t.done();
 });

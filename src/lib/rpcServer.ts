@@ -52,6 +52,7 @@ export class RpcServer implements IRpcServer {
             let method = this._fns[packet.method];
             if (method === undefined) {
                 logServer('warning: got a request with unknown method.  ignoring it.', packet.method);
+                return;
             }
             logServer('_handleIncomingPacket(): actually calling the function...');
             let data = await method(...packet.args);
@@ -67,10 +68,11 @@ export class RpcServer implements IRpcServer {
 
         } else if (packet.kind === 'START_STREAM') {
             let id = packet.id;
-            this._runningStreamIds.add(id);
             if (this._streams[packet.method] === undefined) {
                 logServer('warning: got a stream request with unknown method.  ignoring it.', packet.method);
+                return;
             }
+            this._runningStreamIds.add(id);
             // TODO: bind?
             let iterator = this._streams[packet.method](...packet.args);
 
@@ -131,11 +133,13 @@ export class RpcServer implements IRpcServer {
                 this._runningStreamIds.delete(packet.id);
             } else {
                 logThread('warning: cancel_stream was given an unknown id.  ignoring it.', packet.id);
+                return;
             }
 
         } else {
             let x: never = packet;  // ensure all the packet kinds are handled, above
             logServer('warning: got a request with unknown kind.  ignoring it.', (packet as any).id);
+            return;
         }
 
         logServer('..._handleIncomingPacket() is done.');
