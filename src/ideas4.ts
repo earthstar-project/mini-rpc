@@ -1,5 +1,6 @@
 import chalk = require('chalk');
 import { Chan } from 'concurrency-friends';
+import { z } from 'zod';
 
 //================================================================================
 // logging
@@ -61,75 +62,89 @@ let makeDeferred = <T>(): Deferred<T> => {
 //================================================================================
 // client-sent packets
 
+const PacketRequest = z.object({
+    kind: z.literal('REQUEST'),
+    id: z.string().min(5).max(256),
+    method: z.string().min(1).max(128),
+    args: z.array(z.any()),
+});
 
-interface PacketRequest {
-    kind: 'REQUEST',
-    id: string,
-    method: string,
-    args: any[],
-}
-interface PacketStartStream {
-    kind: 'START_STREAM',
-    id: string,
-    method: string,
-    args: any[],
-}
-interface PacketCancelStream {
-    kind: 'CANCEL_STREAM',
-    id: string,
-}
+const PacketStartStream = z.object({
+    kind: z.literal('START_STREAM'),
+    id: z.string().min(5).max(256),
+    method: z.string().min(1).max(128),
+    args: z.array(z.any()),
+});
 
-type ClientPacket =
+const PacketCancelStream = z.object({
+    kind: z.literal('CANCEL_STREAM'),
+    id: z.string().min(5).max(256),
+});
+
+const ClientPacket =
     PacketRequest
-    | PacketStartStream
-    | PacketCancelStream;
+    .or(PacketStartStream)
+    .or(PacketCancelStream);
+
+type PacketRequest = z.infer<typeof PacketRequest>;
+type PacketStartStream = z.infer<typeof PacketStartStream>;
+type PacketCancelStream = z.infer<typeof PacketCancelStream>;
+type ClientPacket = z.infer<typeof ClientPacket>;
 
 //================================================================================
 // server-sent packets
 
-interface PacketResponse {
+const PacketResponse = z.object({
     // response to a PacketRequest from the client
-    kind: 'RESPONSE',
-    id: string,
-    data: any,
-}
+    kind: z.literal('RESPONSE'),
+    id: z.string().min(5).max(256),
+    data: z.any(),
+});
 
-interface PacketStreamStarted {
-    kind: 'STREAM_STARTED',
-    id: string,
-}
+const PacketStreamStarted = z.object({
+    kind: z.literal('STREAM_STARTED'),
+    id: z.string().min(5).max(256),
+});
 
-interface PacketStreamData {
-    kind: 'STREAM_DATA',
-    id: string,
-    data: any,
-}
+const PacketStreamData = z.object({
+    kind: z.literal('STREAM_DATA'),
+    id: z.string().min(5).max(256),
+    data: z.any(),
+});
 
-interface PacketStreamEnded {
-    // stream ended on its own
-    kind: 'STREAM_ENDED',
-    id: string,
-}
+const PacketStreamEnded = z.object({
+    // stream ended naturally
+    kind: z.literal('STREAM_ENDED'),
+    id: z.string().min(5).max(256),
+});
 
-interface PacketStreamCancelled {
+const PacketStreamCancelled = z.object({
     // stream was cancelled by client
-    kind: 'STREAM_CANCELLED',
-    id: string,
-}
+    kind: z.literal('STREAM_CANCELLED'),
+    id: z.string().min(5).max(256),
+});
 
-interface PacketError {
-    kind: 'ERROR',
-    id: string,
-    error: string,
-}
+const PacketError = z.object({
+    kind: z.literal('ERROR'),
+    id: z.string().min(5).max(256),
+    error: z.string(),
+});
 
-type ServerPacket =
+const ServerPacket =
     PacketResponse
-    | PacketStreamStarted
-    | PacketStreamData
-    | PacketStreamEnded
-    | PacketStreamCancelled
-    | PacketError;
+    .or(PacketStreamStarted)
+    .or(PacketStreamData)
+    .or(PacketStreamEnded)
+    .or(PacketStreamCancelled)
+    .or(PacketError);
+
+type PacketResponse = z.infer<typeof PacketResponse>;
+type PacketStreamStarted = z.infer<typeof PacketStreamStarted>;
+type PacketStreamData = z.infer<typeof PacketStreamData>;
+type PacketStreamEnded = z.infer<typeof PacketStreamEnded>;
+type PacketStreamCancelled = z.infer<typeof PacketStreamCancelled>;
+type PacketError = z.infer<typeof PacketError>;
+type ServerPacket = z.infer<typeof ServerPacket>;
 
 //================================================================================
 
@@ -198,12 +213,20 @@ class RpcClient implements IRpcClient {
     _streams: Map<string, StreamInfo> = new Map();
     constructor(public transport: ITransport) {
         transport.onReceive(async (packet: Obj): Promise<void> => {
-            // todo: validation
             await this._handleIncomingPacket(packet as ServerPacket);
         });
     }
     async _handleIncomingPacket(packet: ServerPacket) {
         logClient('_handleIncomingPacket()', JSON.stringify(packet));
+
+        // validate the packet against the schema
+        try {
+            ServerPacket.parse(packet);
+        } catch (err) {
+            logServer('packet failed validation.  ignoring it.', packet);
+            return;
+        }
+
         if (packet.kind === 'RESPONSE') {
             let deferred = this._waitingRequests.get(packet.id);
             if (deferred === undefined) {
@@ -287,29 +310,6 @@ class RpcClient implements IRpcClient {
         };
         this._streams.set(id, streamInfo);
 
-        /*
-        // TODO: it doesn't work to have the user close the chan to cancel the stream,
-        // because the chan also gets closed when the stream ends naturally and is drained.
-        // We need to either:
-        //    * also return a Thunk for cancelling the stream, or
-        //    * add an event to the Chan code for when a stream is manually closed, not auto-closed b/c of being sealed
-        // 
-
-        // set up a way to cancel the stream.
-        // TODO: chan doesn't have an event for when it's closed,
-        // so for now we have to poll.
-        logClient(`startStream(): starting to poll for chan being closed, which will cancel the stream`);
-        let poll = setInterval(async () => {
-            logClient('                                         polling', chan.isClosed);
-            if (chan.isClosed && !chan.isSealed) {
-                // the client-user closed the channel, so let's cancel the stream.
-                logClient('startStream(): polling detected the chan was closed.  cancelling the stream.');
-                clearInterval(poll);
-                this._cancelStream(id);
-            }
-        }, 100);
-        */
-
         logClient('startStream(): sending START_STREAM packet and not waiting for response:');
         let packetStartStream: PacketStartStream = {
             kind: 'START_STREAM',
@@ -322,6 +322,13 @@ class RpcClient implements IRpcClient {
         this.transport.send(packetStartStream);
         logClient(`...startStream(): done.`);
 
+        // TODO: it doesn't work to have the user close the chan to cancel the stream,
+        // because the chan also gets closed when the stream ends naturally and is drained.
+        // So we need to either:
+        //    * return a Thunk for cancelling the stream, or
+        //    * add an event to the Chan code for when a stream is manually closed, not auto-closed b/c of being sealed
+        // Here we do the first option.
+        // 
         return {
             chan,
             cancelStream: async () => await this._cancelStream(id),
@@ -369,13 +376,21 @@ class RpcServer implements IRpcServer {
         this._fns = fns;
         this._streams = streams;
         transport.onReceive(async (packet: Obj): Promise<void> => {
-            // TODO: validation
             await this._handleIncomingPacket(packet as ClientPacket);
         });
     }
     async _handleIncomingPacket(packet: ClientPacket): Promise<void> {
         logServer('_handleIncomingPacket()');
         logServer(JSON.stringify(packet));
+
+        // validate the packet against the schema
+        try {
+            ClientPacket.parse(packet);
+        } catch (err) {
+            logServer('packet failed validation.  ignoring it.', packet);
+            return;
+        }
+
         if (packet.kind === 'REQUEST') {
             let method = this._fns[packet.method];
             if (method === undefined) {
@@ -539,6 +554,7 @@ let main = async () => {
     logMain('(client waiting request ids:)', [...rpcClient._waitingRequests.keys()]);
     */
 
+    /*
     //----------------------------------------
     // test streams
 
@@ -576,6 +592,17 @@ let main = async () => {
 
     //await sleep(2500);
     //chan.close();
+    */
+
+    //----------------------------------------
+    // test validation
+    let badPacket = { kind: 'REQUEST', id: 123 }
+
+    logMain('sending bad packet to server');
+    await rpcServer._handleIncomingPacket(badPacket as any);
+
+    logMain('sending bad packet to client');
+    await rpcClient._handleIncomingPacket(badPacket as any);
 
 }
 main();
