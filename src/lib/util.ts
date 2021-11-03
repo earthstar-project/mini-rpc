@@ -1,55 +1,48 @@
 import chalk = require('chalk');
 
+//================================================================================
+// LOGGING
+
 // in fish shell, run like this:
 // VERBOSE=true yarn start-client
 
 export let log = console.log;
 export let nop = (...args: any[]) => {};
-if (process.env.VERBOSE) {
+if (process.env.VERBOSE === 'true') {
     nop = log;
 }
 
-// main is always printed
-export let logMain =       (...args: any[]) => log(         chalk.black.bgWhite(     'main') + '               ', ...args);
-
-// the rest are optional
-export let logPeerClient =      (...args: any[]) => log(' ' + chalk.black.bgCyanBright('peerClient') + '        ', ...args);
-export let logPeerServer =      (...args: any[]) => log('    ' + chalk.black.bgCyan('peerServer') + '     ', ...args);
-export let logTransportClient = (...args: any[]) => log('  ' + chalk.black.bgGreenBright('transportClient') + '  ', ...args);
-export let logTransportServer = (...args: any[]) => log('   ' + chalk.black.bgGreen('transportServer') + ' ', ...args);
-
-export let logHandler =    (...args: any[]) => nop(' '   + chalk.black.bgCyanBright('handler') + '    ', ...args);
-export let logEvaluator =  (...args: any[]) => nop('  ' + chalk.black.bgGreen(     'evaluator') + ' ', ...args);
-
-export let logHttpServer = (...args: any[]) => nop(chalk.black.bgYellow('http server'), ...args);
-export let logHttpClient = (...args: any[]) => nop(chalk.black.bgMagenta('http client'), ...args);
-
-export let logTest =       (...args: any[]) => nop(chalk.black.bgWhite(  'test       '), ...args);
-export let logTestMark =   (...args: any[]) => nop(chalk.black.bgWhite(  'test ') + chalk.black.bgGray(       'mark  '), ...args);
-export let logTestLog =    (...args: any[]) => nop(chalk.black.bgWhite(  'test ') + chalk.black.bgGreenBright('log   '), ...args);
-export let logTestExpect = (...args: any[]) => nop(chalk.black.bgWhite(  'test ') + chalk.black.bgRedBright(  'expect'), ...args);
-
-//================================================================================
-
-export let showError = (error: Error): void => {
-    console.log(chalk.red('/') + ' class', error.constructor.name);
-    console.log(chalk.red('|') + ' name', error.name);
-    console.log(chalk.red('|') + ' message', error.message);
-    console.log(chalk.red('\\') + ' stack', error.stack);
-}
+export let logMain =      (...args: any[]) => log('' + chalk.black.bgWhite(        'main') + '          ', ...args);
+export let logClient =    (...args: any[]) => nop(' ' + chalk.black.bgYellowBright( 'client') + '       ', ...args);
+export let logTransport = (...args: any[]) => nop('  ' + chalk.black.bgCyanBright(   'transport') + '   ', ...args);
+export let logServer =    (...args: any[]) => nop('            ' + chalk.black.bgYellow(       'server') + '    ', ...args);
+export let logThread =    (...args: any[]) => nop('             ' + chalk.black.bgYellowBright(         'thread') + '   ', ...args);
+export let logFunction =  (...args: any[]) => nop('              ' + chalk.black.bgGrey(         'fn') + '      ', ...args);
 
 //================================================================================
 // HELPERS
 
-export let sleep = async (ms : number) : Promise<void> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(resolve, ms);
-    });
+export interface Deferred<T> {
+    resolve: (value: T | PromiseLike<T>) => void,
+    reject: (reason?: any) => void,
+    promise: Promise<T>,
 }
+
+export let makeDeferred = <T>(): Deferred<T> => {
+    let def: any = {};
+    def.promise = new Promise<T>((resolve, reject) => {
+        def.resolve = resolve;
+        def.reject = reject;
+    });
+    return def as Deferred<T>;
+}
+
+export let sleep = async (ms : number) : Promise<void> =>
+    new Promise((resolve, reject) => setTimeout(resolve, ms));
 
 // inclusive of endpoints
 export let randInt = (lo: number, hi: number): number => 
     lo + Math.floor(Math.random() * (hi-lo));
 
 export let makeId = (): string =>
-    ('' + randInt(0, 999999999999999)).padStart(15, '0');
+    ('' + randInt(0, 999999999999999)).padStart(18, '0');

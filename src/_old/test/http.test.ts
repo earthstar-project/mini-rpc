@@ -4,14 +4,14 @@ import t = require('tap');
 import {
     sleep,
     logMain,
-} from '../lib/util';
+} from '../../lib/util';
 import {
     makeProxy,
 } from '../lib/mini-rpc';
 import {
     myFunctions,  // some example functions to play with
 } from './things-to-test';
-import { makeHttpEvaluator } from '../lib/http-client';
+import { makeHttpEvaluator } from '../http-client';
 import { startHttpRpcServer } from '../lib/http-server';
 
 //================================================================================

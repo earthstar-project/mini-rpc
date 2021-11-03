@@ -1,11 +1,11 @@
-import { logMain } from './lib/util';
+import { logMain } from '../lib/util';
 import { 
     makeProxy,
 } from './lib/mini-rpc';
 import {
     myFunctions,  // some example functions to play with
-} from './test/things-to-test';
-import { makeHttpEvaluator } from './lib/http-client';
+} from '../test/things-to-test';
+import { makeHttpEvaluator } from './http-client';
 
 //================================================================================
 

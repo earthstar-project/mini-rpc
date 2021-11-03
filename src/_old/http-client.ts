@@ -1,6 +1,6 @@
 import * as http from 'http';
 
-import { logHttpClient } from './util';
+import { logHttpClient } from '../lib/util';
 import { 
     Req,
     Res,
