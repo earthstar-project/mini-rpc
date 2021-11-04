@@ -13,6 +13,7 @@ if (process.env.VERBOSE === 'true') {
 }
 
 export let logMain =      (...args: any[]) => log('' + chalk.black.bgWhite(        'main') + '          ', ...args);
+export let logProxy  =    (...args: any[]) => nop(' ' + chalk.black.bgMagenta( 'proxy') + '       ', ...args);
 export let logClient =    (...args: any[]) => nop(' ' + chalk.black.bgYellowBright( 'client') + '       ', ...args);
 export let logTransport = (...args: any[]) => nop('  ' + chalk.black.bgCyanBright(   'transport') + '   ', ...args);
 export let logServer =    (...args: any[]) => nop('            ' + chalk.black.bgYellow(       'server') + '    ', ...args);

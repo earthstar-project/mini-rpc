@@ -36,7 +36,7 @@ export let myFunctions = {
     doubleAsync: async (x: number) => { return x * 2; },
     add: (x: number, y: number) => { return x + y; },
     addSlowly: async (x: number, y: number) => {
-        await sleep(1000);
+        await sleep(500);
         return x + y;
     },
     divide: async (x: number, y: number) => {
@@ -65,7 +65,7 @@ export class MyClass {
     async doubleAsync(x: number) { return x * 2; }
     add(x: number, y: number) { return x + y; }
     async addSlowly(x: number, y: number) {
-        await sleep(1000);
+        await sleep(500);
         return x + y;
     }
     async divide (x: number, y: number) {
