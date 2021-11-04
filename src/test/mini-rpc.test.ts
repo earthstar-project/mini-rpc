@@ -11,6 +11,7 @@ import { RpcServer } from '../lib/rpcServer';
 import {
     myFunctions,
 } from './things-to-test';
+import { makeProxy } from '../lib/proxy';
 
 t.test(`basics using an object-of-functions`, async (t: any) => {
     let [transportForClient, transportForServer] = makePairOfTransportLocal();
@@ -21,6 +22,20 @@ t.test(`basics using an object-of-functions`, async (t: any) => {
     t.deepEqual(await rpcClient.request('doubleAsync', 3), 6, 'doubleAsync');
     t.deepEqual(await rpcClient.request('addSlowly', 1, 2), 3, 'addSlowly');
     t.deepEqual(await rpcClient.request('hello', 'Susan'), 'Hello Susan', 'hello');
+
+    t.done();
+});
+
+t.test(`proxy basics using an object-of-functions`, async (t: any) => {
+    let [transportForClient, transportForServer] = makePairOfTransportLocal();
+    let rpcClient = new RpcClient(transportForClient);
+    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
+    let proxy = makeProxy<typeof myFunctions>(myFunctions, rpcClient);
+
+    t.deepEqual(await proxy.doubleSync(1), 2, 'doubleSync');
+    t.deepEqual(await proxy.doubleAsync(3), 6, 'doubleAsync');
+    t.deepEqual(await proxy.addSlowly(1, 2), 3, 'addSlowly');
+    t.deepEqual(await proxy.hello('Susan'), 'Hello Susan', 'hello');
 
     t.done();
 });
@@ -42,15 +57,6 @@ t.test(`error from server is re-thrown on client`, async (t: any) => {
 });
 
 /*
-t.test(`basics using an object-of-functions`, async (t: any) => {
-    let proxy = makeProxy(myFunctions, evaller);
-    t.deepEqual(await proxy.doubleSync(1), 2, 'doubleSync');
-    t.deepEqual(await proxy.doubleAsync(1), 2, 'doubleAsync');
-    t.deepEqual(await proxy.addSlowly(1, 2), 3, 'addSlowly');
-    t.deepEqual(await proxy.hello('Susan'), 'Hello Susan', 'hello');
-    t.done();
-});
-
 t.test(`basics using a class instance`, async (t: any) => {
     let myClass = new MyClass();
     let proxy = makeProxy(myClass, evaller);
