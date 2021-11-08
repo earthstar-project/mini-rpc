@@ -31,7 +31,7 @@ class TransportHTTPClientSide implements ITransport {
         log('send (by POST)', JSON.stringify(packet));
         // send events as individual POSTs
         log('send: doing a fetch POST...');
-        let response = await fetch(this.url + ':' + this.port, {
+        let response = await fetch(`${this.url}:${this.port}/sync`, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -69,14 +69,14 @@ let main = async () => {
         log('main: = = = = = = = = CLIENT TRANSPORT GOT A MESSAGE', packet);
     });
 
-    /*
     let ii = 0;
-    setInterval(async () => {
+    while (true) {
         log(`main: --> await transport.send(hello: world, ${ii}) which should be a POST to the server...`, ii);
         await transport.send({hello: 'world', from: 'client', num: ii})
         log('main: ...done.');
         log('...main is done.');
-    }, 1000);
-    */
+        ii += 1;
+    }
+
 }
 main();
