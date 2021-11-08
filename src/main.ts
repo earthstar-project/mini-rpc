@@ -7,7 +7,7 @@ import {
 import {
     TransportLocal,
     makePairOfTransportLocal
-} from './lib/transportLocal';
+} from './lib/transport-local';
 import { RpcClient } from './lib/rpcClient';
 import { RpcServer } from './lib/rpcServer';
 
