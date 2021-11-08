@@ -1,6 +1,6 @@
 import { ITransport, Obj } from './types';
 
-let log = console.log;
+let log = (...args: any[]) => console.log('CLIENT  ', ...args);
 
 type Cb = (packet: Obj) => Promise<void>;
 type Thunk = () => void;
@@ -8,21 +8,27 @@ class TransportHTTPClientSide implements ITransport {
     cbs: Set<Cb> = new Set();
     constructor(public url: string, public port: number) {
         log('constructor');
-        log('constructor: set up SSE listening');
+        log('constructor: set up SSE listening at /sync-sse');
         // set up listening for SSE
-        let evtSource = new EventSource('/sync:' + this.port);
+        let evtSource = new EventSource('/sync-sse:' + this.port);
         evtSource.onmessage = async (event) => {
-            log('sse onmessage handler');
+            log('-------------------------------------');
+            log('!! sse onmessage handler got', event.data);
+            log('  |  data', event.data);
+            log('  |  lastEventId', event.lastEventId);
+            log('  |  timestamp', event.timeStamp);  // since page load
             for (let cb of this.cbs) {
-                if (event.data.length > 0) {
-                    await cb(event.data);
+                if (event.data === undefined || event.data === 'undefined' || event.data.length === 0 || event.data === '""') {
+                    log('  |  (heartbeat)');
+                } else {
+                    await cb(JSON.parse(event.data));
                 }
             }
         }
         log('...constructor is done.');
     }
     async send(packet: Obj): Promise<void> {
-        log('send', JSON.stringify(packet));
+        log('send (by POST)', JSON.stringify(packet));
         // send events as individual POSTs
         log('send: doing a fetch POST...');
         let response = await fetch(this.url + ':' + this.port, {
@@ -39,6 +45,7 @@ class TransportHTTPClientSide implements ITransport {
         log('send: handling response...');
         if (response.text.length > 0) {
             let packetResponse = JSON.parse(await response.json());
+            log('send: packetResponse is', packetResponse);
             for (let cb of this.cbs) {
                 await cb(packetResponse);
             }
@@ -54,17 +61,22 @@ class TransportHTTPClientSide implements ITransport {
 //================================================================================
 let main = async () => {
     log('main (client)');
-    let PORT = 8123
+    let PORT = 8008
 
-    log('setting up transport on port ' + PORT);
-    let transport = new TransportHTTPClientSide(`https://localhost`, PORT);
+    log('main: setting up transport on port ' + PORT);
+    let transport = new TransportHTTPClientSide(`http://localhost`, PORT);
     transport.onReceive(async (packet: Obj) => {
-        log('transport.onReceive got a message', JSON.stringify(packet));
-        console.log(`got ${JSON.stringify(packet)}`)
+        log('main: = = = = = = = = CLIENT TRANSPORT GOT A MESSAGE', packet);
     });
 
-    log('transport: await send hello world...');
-    await transport.send({hello: 'world', from: 'client'})
-    log('...main is done.');
+    /*
+    let ii = 0;
+    setInterval(async () => {
+        log(`main: --> await transport.send(hello: world, ${ii}) which should be a POST to the server...`, ii);
+        await transport.send({hello: 'world', from: 'client', num: ii})
+        log('main: ...done.');
+        log('...main is done.');
+    }, 1000);
+    */
 }
 main();

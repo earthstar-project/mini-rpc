@@ -12,7 +12,8 @@
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
   "scripts": {
-    "clean": "rm -rf build coverage .nyc_output build/*",
+    "clean": "rm -rf coverage .nyc_output build/*.js*",
+    "serve": "node build/transport-http-server.js",
     "build": "node esbuild-client.js && node esbuild-server.js",
     "build-tsc": "tsc --noEmit",
     "start-server": "VERBOSE=true node build/http-server-demo.js",
@@ -30,6 +31,7 @@
     "@types/tap": "^15.0.5",
     "browser-run": "^10.1.0",
     "esbuild": "^0.13.12",
+    "node-static": "^0.7.11",
     "tap": "^14.11.0",
     "typescript": "^4.4.4"
   },
