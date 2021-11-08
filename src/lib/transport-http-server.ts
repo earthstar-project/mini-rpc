@@ -4,6 +4,7 @@ import SSE from 'express-sse';
 //var SSE = require('express-sse');
 
 import { ITransport, Obj } from './types';
+import { sleep } from './util';
 
 let log = (...args: any[]) => console.log('SERVER  ', ...args);
 
@@ -14,20 +15,25 @@ class TransportHttpServer implements ITransport {
     sse: any;
     app: any;
     heartbeatInterval: any;
-    constructor(app: any, public port: number) {
+    constructor(app: any) {
         log('constructor...');
         log('constructor: set up listening for incoming POSTs');
         this.app = app;
+        app.use(express.json());
         // listen for incoming POSTs
-        app.post('/sync:' + this.port, (req: any, res: any) => {
+        app.post('/sync', async (req: any, res: any) => {
             log('!! express got a POST request');
-            this.onReceive(JSON.parse(req.body));
+            for (let cb of this.cbs) {
+                await cb(req.body);
+            }
+            await sleep(2000);
+            res.sendStatus(200);
         });
 
         // set up SSE for outgoing messages
         log('constructor set up SSE for outoing messages at /sync-sse');
         this.sse = new SSE();
-        app.get('/sync-sse:' + this.port, this.sse.init);
+        app.get('/sync-sse', this.sse.init);
 
         // turn on heartbeat
         let heartbeatInterval = setInterval(() => this._sendHeartbeat(), 10000);
@@ -62,7 +68,7 @@ let main = async () => {
     app.use(express.static('build'))
 
     log('main: setting up transport');
-    let transport = new TransportHttpServer(app, PORT);
+    let transport = new TransportHttpServer(app);
     transport.onReceive(async (packet: Obj) => {
         log('~~~ SERVER TRANSPORT GOT A MESSAGE:~~~', packet);
     });
