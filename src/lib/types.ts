@@ -101,6 +101,7 @@ export type ServerPacket = z.infer<typeof ServerPacket>;
 export interface ITransport {
     send(packet: Obj): Promise<void>,
     onReceive(cb: (packet: Obj) => Promise<void>): Thunk,  // thunk to remove callback
+    close(): void,
 }
 
 export interface IRpcClient {

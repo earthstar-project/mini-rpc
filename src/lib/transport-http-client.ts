@@ -1,17 +1,21 @@
+import { response } from 'express';
 import { ITransport, Obj } from './types';
 
 let log = (...args: any[]) => console.log('CLIENT  ', ...args);
 
-type Cb = (packet: Obj) => Promise<void>;
+let SSE_PATH = '/sync/sse'
+let POST_PATH = '/sync/post'
+
+type Cb = (packet: Obj) => Promise<any>;
 type Thunk = () => void;
 class TransportHTTPClientSide implements ITransport {
     _cbs: Set<Cb> = new Set();
     lastSeen: number = 0;  // timestamp we were last connected to the server
     constructor(public url: string, public port: number) {
         log('constructor');
-        log('constructor: set up SSE listening at /sync-sse');
+        log('constructor: set up SSE listening at ' + SSE_PATH);
         // set up listening for SSE
-        let evtSource = new EventSource('/sync-sse:' + this.port);
+        let evtSource = new EventSource(SSE_PATH);
         evtSource.onmessage = async (event) => {
             this.lastSeen = Date.now();
             log('-------------------------------------');
@@ -23,7 +27,10 @@ class TransportHTTPClientSide implements ITransport {
                 if (event.data === undefined || event.data === 'undefined' || event.data.length === 0 || event.data === '""') {
                     log('  |  (heartbeat)');
                 } else {
-                    await cb(JSON.parse(event.data));
+                    let resPacket = await cb(JSON.parse(event.data));
+                    if (resPacket) {
+                        await this.send(resPacket);
+                    }
                 }
             }
         }
@@ -32,8 +39,9 @@ class TransportHTTPClientSide implements ITransport {
     async send(packet: Obj): Promise<void> {
         log('send (by POST)', JSON.stringify(packet));
         // send events as individual POSTs
-        log('send: doing a fetch POST...');
-        let response = await fetch(`${this.url}:${this.port}/sync`, {
+        let fullUrl = `${this.url}:${this.port}${POST_PATH}`
+        log(`send: doing a fetch POST to ${fullUrl} ...`);
+        let response = await fetch(fullUrl, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -59,6 +67,9 @@ class TransportHTTPClientSide implements ITransport {
         this._cbs.add(cb);
         return () => this._cbs.delete(cb);
     }
+    close(): void {
+        // nothing to do
+    }
 }
 
 //================================================================================
@@ -70,6 +81,7 @@ let main = async () => {
     let transport = new TransportHTTPClientSide(`http://localhost`, PORT);
     transport.onReceive(async (packet: Obj) => {
         log('main: = = = = = = = = CLIENT TRANSPORT GOT A MESSAGE', packet);
+        log('client response: 789');
     });
 
     let ii = 0;
