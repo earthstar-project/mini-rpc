@@ -1,4 +1,3 @@
-import { transcode } from 'buffer';
 import express from 'express';
 import SSE from 'express-sse';
 //var SSE = require('express-sse');
@@ -11,19 +10,19 @@ let log = (...args: any[]) => console.log('SERVER  ', ...args);
 type Cb = (packet: Obj) => Promise<void>;
 type Thunk = () => void;
 class TransportHttpServer implements ITransport {
-    cbs: Set<Cb> = new Set();
-    sse: any;
-    app: any;
-    heartbeatInterval: any;
+    _cbs: Set<Cb> = new Set();
+    _sse: any;
+    _app: any;
+    _heartbeatInterval: any;
     constructor(app: any) {
         log('constructor...');
         log('constructor: set up listening for incoming POSTs');
-        this.app = app;
+        this._app = app;
         app.use(express.json());
         // listen for incoming POSTs
         app.post('/sync', async (req: any, res: any) => {
             log('!! express got a POST request');
-            for (let cb of this.cbs) {
+            for (let cb of this._cbs) {
                 await cb(req.body);
             }
             await sleep(2000);
@@ -32,8 +31,8 @@ class TransportHttpServer implements ITransport {
 
         // set up SSE for outgoing messages
         log('constructor set up SSE for outoing messages at /sync-sse');
-        this.sse = new SSE();
-        app.get('/sync-sse', this.sse.init);
+        this._sse = new SSE();
+        app.get('/sync-sse', this._sse.init);
 
         // turn on heartbeat
         let heartbeatInterval = setInterval(() => this._sendHeartbeat(), 10000);
@@ -43,19 +42,19 @@ class TransportHttpServer implements ITransport {
     async send(packet: Obj): Promise<void> {
         // TODO: no way of knowing if anyone is hearing us or not
         log('send: sending a message via sse:', packet);
-        this.sse.send(packet);
+        this._sse.send(packet);
         log('...send is done.');
     }
     async _sendHeartbeat(): Promise<void> {
         log('(heartbeat)');
-        this.sse.send();
+        this._sse.send();
     }
     onReceive(cb: Cb): Thunk {
-        this.cbs.add(cb);
-        return () => this.cbs.delete(cb);
+        this._cbs.add(cb);
+        return () => this._cbs.delete(cb);
     }
     close(): void {
-        clearInterval(this.heartbeatInterval());
+        clearInterval(this._heartbeatInterval());
     }
 }
 
