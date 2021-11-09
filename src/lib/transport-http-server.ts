@@ -1,4 +1,4 @@
-import express, { response } from 'express';
+import express from 'express';
 import SSE from 'express-sse';
 
 import { CONNECTION_STATUS, ITransport, Obj } from './types';
@@ -14,7 +14,7 @@ type Thunk = () => void;
 export class TransportHttpServer implements ITransport {
     _cbs: Set<Cb> = new Set();
     _sse: any;
-    _app: any;
+    app: any;
     _heartbeatInterval: any;
     constructor(app?: any) {
         log('constructor...');
@@ -22,7 +22,7 @@ export class TransportHttpServer implements ITransport {
         if (!app) {
             app = express();
         }
-        this._app = app;
+        this.app = app;
         app.use(express.json());
         // listen for incoming POSTs
         app.post(POST_PATH, async (req: any, res: any) => {
@@ -47,7 +47,7 @@ export class TransportHttpServer implements ITransport {
 
         log('...constructor is done.');
     }
-    async status(): Promise<CONNECTION_STATUS> {
+    status(): CONNECTION_STATUS {
         // we don't know how many peers are connected to us
         return 'CLOSED'; //  TODO: ?
     }
@@ -69,41 +69,3 @@ export class TransportHttpServer implements ITransport {
         clearInterval(this._heartbeatInterval());
     }
 }
-
-//================================================================================
-let main = async () => {
-    log('main (server)');
-    let PORT = 8008;
-
-    let app = express();
-    app.use(express.static('build'))
-
-    log('main: setting up transport');
-    let transport = new TransportHttpServer(app);
-    transport.onReceive(async (packet: Obj) => {
-        log('~~~ SERVER TRANSPORT GOT A MESSAGE:~~~', packet);
-        return 'server response: 123'
-    });
-
-    log('main: setting up default / route in express');
-    app.get('/', (req, res) => {
-        res.send('Hello world from server')
-    })
-
-    setTimeout(() => {
-        log('main: listening...');
-        app.listen(PORT, () => console.log(`server is listening on http://localhost:${PORT}`));
-    }, 1);
-
-    let ii = 0;
-    setInterval(async () => {
-        log('----------------------');
-        log(`main: --> sending hello world packet ${ii} via sse...`);
-        await transport.send({hello: 'world', from: 'server', num: ii})
-        log('main: ...done sending.');
-        ii += 1
-    }, 5000);
-
-    log('...main is done.');
-}
-main();

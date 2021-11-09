@@ -6,6 +6,7 @@ import {
     Thunk,
     Obj,
     ITransport,
+    CONNECTION_STATUS,
 } from './types';
 
 //================================================================================
@@ -17,6 +18,9 @@ export class TransportLocal implements ITransport {
     _onReceiveCb: null | Cb = null;
     constructor(public debugName: string = '') {
         this._otherTransport = null as any;  // hack for now
+    }
+    status(): CONNECTION_STATUS {
+        return 'OPEN';
     }
     async send(packet: Obj): Promise<void> {
         logTransport(this.debugName, 'send()');
