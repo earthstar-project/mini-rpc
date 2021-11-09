@@ -11,14 +11,17 @@ let POST_PATH = '/sync/post'
 
 type Cb = (packet: Obj) => Promise<any>;
 type Thunk = () => void;
-class TransportHttpServer implements ITransport {
+export class TransportHttpServer implements ITransport {
     _cbs: Set<Cb> = new Set();
     _sse: any;
     _app: any;
     _heartbeatInterval: any;
-    constructor(app: any) {
+    constructor(app?: any) {
         log('constructor...');
         log('constructor: set up listening for incoming POSTs');
+        if (!app) {
+            app = express();
+        }
         this._app = app;
         app.use(express.json());
         // listen for incoming POSTs

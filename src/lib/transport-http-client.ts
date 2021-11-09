@@ -8,7 +8,7 @@ let POST_PATH = '/sync/post'
 
 type Cb = (packet: Obj) => Promise<any>;
 type Thunk = () => void;
-class TransportHTTPClientSide implements ITransport {
+export class TransportHTTPClientSide implements ITransport {
     _cbs: Set<Cb> = new Set();
     lastSeen: number = 0;  // timestamp we were last connected to the server
     constructor(public url: string, public port: number) {

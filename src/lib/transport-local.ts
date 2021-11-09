@@ -10,9 +10,11 @@ import {
 
 //================================================================================
 
+type Cb = (packet: Obj) => Promise<any>;
 export class TransportLocal implements ITransport {
     _otherTransport: TransportLocal;
-    _onReceiveCb: null | ((packet: Obj) => Promise<void>) = null;
+    _cbs: Set<Cb> = new Set();
+    _onReceiveCb: null | Cb = null;
     constructor(public debugName: string = '') {
         this._otherTransport = null as any;  // hack for now
     }
@@ -28,14 +30,19 @@ export class TransportLocal implements ITransport {
         logTransport(this.debugName, '-------------------------------');
         logTransport(this.debugName, '_handleReceive()');
         logTransport(this.debugName, JSON.stringify(packet));
-        if (this._onReceiveCb === null) { return; }
-        await this._onReceiveCb(packet);
+        for (let cb of this._cbs) {
+            let result = await cb(packet);
+            if (result) {
+                this.send(result);
+            }
+        }
         logTransport(this.debugName, '..._handleReceive() done.');
     }
     onReceive(cb: (packet: Obj) => Promise<void>): Thunk {
-        this._onReceiveCb = cb;
-        return () => { this._onReceiveCb = null; }
+        this._cbs.add(cb);
+        return () => this._cbs.delete(cb);
     }
+    close(): void {}
 }
 
 export let makePairOfTransportLocal = (): [TransportLocal, TransportLocal] => {

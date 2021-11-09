@@ -1,10 +1,7 @@
 import t = require('tap');
 //t.runOnly = true;
 
-import {
-    TransportLocal,
-    makePairOfTransportLocal
-} from '../lib/transport-local';
+import { makePairOfTransportLocal } from '../lib/transport-local';
 import { RpcClient } from '../lib/rpcClient';
 import { RpcServer } from '../lib/rpcServer';
 
@@ -12,6 +9,15 @@ import {
     myFunctions,
 } from './things-to-test';
 import { makeProxy } from '../lib/proxy';
+
+t.test(`basic request-respose`, async (t: any) => {
+    let [transportForClient, transportForServer] = makePairOfTransportLocal();
+    let rpcClient = new RpcClient(transportForClient);
+    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
+
+    let result = await rpcClient.request('doubleAsync', 3);
+    t.deepEqual(result, 6)
+});
 
 t.test(`basics using an object-of-functions`, async (t: any) => {
     let [transportForClient, transportForServer] = makePairOfTransportLocal();
