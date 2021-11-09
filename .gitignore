@@ -8,3 +8,4 @@ coverage/
 *.dot
 *.png
 .vscode/
+yarn-error.log
