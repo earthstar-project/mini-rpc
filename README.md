@@ -4,7 +4,9 @@ A small RPC framework inspired by JSON-RPC.
 
 Lets you run code on remote computers as if it was local.
 
-Follows a request-response model but does not assume that either side is a "client" or "server" -- both sides can make requests.
+Important note: This follows a request-response model but does not assume that either side is a "client" or "server" -- both sides can make requests, and who is acting as the "Server" at any moment is unrelated to who is the server from a low-level networking perspective.
+
+Also supports streams.
 
 ## Why not just use JSON-RPC?
 
@@ -20,45 +22,76 @@ For comparison, I added JSON-RPC as typescript types in [json-rpc.ts](https://gi
 * Network agnostic -- write plugins to support different kinds of networks.  This repo has no network code except for a demonstration plugin for HTTP.
 * Designed to work across many languages, not just Javascript.
 
-## Code Features
+## Code Goals
 
 * Pure Typescript with good type propagation through your code.
 * No dependencies except `typescript`, and `tap` and `chalk` for testing.
-    * The HTTP demo code uses the built-in node `http` package; we should remove this...
+    * The HTTP demo code uses `express`
 * Good test coverage.
 
 ## Important caveat about undefined values
 
 Because JSON doesn't support `undefined` values, don't use `undefined` anywhere in your function arguments or return values.  Use `null` instead.
 
-If you use it in a function argument, mini-rpc will helpfully throw a `UndefinedNotAllowedError`.
-
-However, it IS allowed as the one single return value of a function, e.g. a function that "doesn't return anything".  Since that's such a common use case, we've made it work.  But don't try to return [1, 2, undefined] or anything like that.
+Todo:
+> If you use `undefined` in a function argument, mini-rpc will helpfully throw a `UndefinedNotAllowedError`.
+> 
+> However, it IS allowed as the one single return value of a function, e.g. a function that "doesn't return anything".  Since that's such a common use case, we've made it work.  But don't try to return [1, 2, undefined] or anything like that.
 
 # Install
 
 It's [@earthstar-project/mini-rpc](https://www.npmjs.com/package/@earthstar-project/mini-rpc) on NPM.
 
 ```sh
-npm install --save @earthstar-project/mini-rpc
+npm install --save @earthstar-project/mini-rpc@beta
   or
-yarn add @earthstar-project/mini-rpc
+yarn add @earthstar-project/mini-rpc@beta
 ```
 
 ```ts
 import {
-    Req,
-    Res,
-    makeProxy,
-    evaluator
-} from '@earthstar-project/mini-rpc';
+    makePairOfTransportLocal,
+    RpcClient,
+    RpcServer,
+} from 'mini-rpc';
 ```
 
 # How it works
 
-You provide some functions you want to expose to the network, stored in a single object.  We call this the `functions` object.
+You provide some functions you want to expose to the network, stored in a two objects -- one for streams and one for regular funtions.  We call these the `functions` and `streams` objects.
 
 You can also use a class instance instead of an object-of-functions.
+
+First, set up the Rpc objets:
+
+
+```ts
+    // for local testing yoou can generate a pair of transports that
+    // are connected behind the scenes
+    let [transportForClient, transportForServer] = makePairOfTransportLocal();
+
+    let rpcClient = new RpcClient(transportForClient);
+    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
+```
+
+```ts
+    // in normal circumstances you'd use the HTTP transport
+
+    // on the client:
+    // (client doesn't need to know about myFunctions and myStreams
+    // since it doesn't run them)
+    let rpcClient = new RpcClient(
+        new TransportHttpClient('https://localhost', 8080)
+    );
+
+    // on the server:
+    let rpcServer = new RpcServer(
+        new TransportHttpServer(),
+        myFunctions, myStreams
+    );
+    // rpcServer.app is an espress instance
+    rpcServer.app.listen(8080, () => console.log('listening...'));
+```
 
 ```ts
 // example functions object
@@ -88,18 +121,27 @@ let myFunctions = {
     // Your functions will be correctly type-checked when you call them.
     hello: (name: string) => { return `Hello ${name}`; },
 };
+
+let myStreams = {
+    // streams are async iterables
+    // (not implemented yet)
+    integers: async function* (n: numer): number {
+        for (let ii = 0; ii < n; ii++ {
+            yield n
+        }
+    }
+}
 ```
 
 We're going to make a Javascript proxy object that stands in for this `functions` object but intercepts the calls and runs code on a distant computer.
 
 ```ts
-// EXAMPLE CLIENT CODE
+// EXAMPLE CLIENT CODE FOR PROXY
 
 // The proxy object is a stand-in for the functions object,
-// but it runs the functions on some other computer.
-// You control the network details by providing a different
-// evaluator (explained later).
-let proxy = makeProxy(myFunctions, evaluator);
+// but it runs the functions on some other computer
+// via the rpcClient.
+let proxy = makeProxy(myFunctions, rpcClient);
 
 // Call a function through the proxy.
 let five = await proxy.addSlowly(2, 3);  // --> 5
@@ -134,10 +176,18 @@ class MyClass {
 
 let myInstance = new MyClass();
 
-let proxy = makeProxy(myInstance, evaluator);
+let proxy = makeProxy(myInstance, rpcClient);
 
 let six = await proxy.double(3);  // all methods were made async
 ```
+
+---
+---
+
+## Osolete documentation follows
+
+---
+---
 
 ## The moving parts
 
