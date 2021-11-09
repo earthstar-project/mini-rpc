@@ -98,7 +98,14 @@ export type ServerPacket = z.infer<typeof ServerPacket>;
 
 //================================================================================
 
+export type CONNECTION_STATUS = 
+    'ERROR'
+    | 'CLOSED'
+    | 'CONNECTING'
+    | 'OPEN'
+
 export interface ITransport {
+    status(): Promise<CONNECTION_STATUS>,
     send(packet: Obj): Promise<void>,
     onReceive(cb: (packet: Obj) => Promise<void>): Thunk,  // thunk to remove callback
     close(): void,

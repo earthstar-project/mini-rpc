@@ -1,7 +1,7 @@
 import express, { response } from 'express';
 import SSE from 'express-sse';
 
-import { ITransport, Obj } from './types';
+import { CONNECTION_STATUS, ITransport, Obj } from './types';
 import { sleep } from './util';
 
 let log = (...args: any[]) => console.log('SERVER  ', ...args);
@@ -46,6 +46,10 @@ export class TransportHttpServer implements ITransport {
         let heartbeatInterval = setInterval(() => this._sendHeartbeat(), 10000);
 
         log('...constructor is done.');
+    }
+    async status(): Promise<CONNECTION_STATUS> {
+        // we don't know how many peers are connected to us
+        return 'CLOSED'; //  TODO: ?
     }
     async send(packet: Obj): Promise<void> {
         // TODO: no way of knowing if anyone is hearing us or not

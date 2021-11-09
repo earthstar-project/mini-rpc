@@ -1,5 +1,6 @@
+import { CONNREFUSED } from 'dns';
 import { response } from 'express';
-import { ITransport, Obj } from './types';
+import { CONNECTION_STATUS, ITransport, Obj } from './types';
 
 let log = (...args: any[]) => console.log('CLIENT  ', ...args);
 
@@ -10,13 +11,14 @@ type Cb = (packet: Obj) => Promise<any>;
 type Thunk = () => void;
 export class TransportHTTPClientSide implements ITransport {
     _cbs: Set<Cb> = new Set();
+    _eventSource: EventSource;
     lastSeen: number = 0;  // timestamp we were last connected to the server
     constructor(public url: string, public port: number) {
         log('constructor');
         log('constructor: set up SSE listening at ' + SSE_PATH);
         // set up listening for SSE
-        let evtSource = new EventSource(SSE_PATH);
-        evtSource.onmessage = async (event) => {
+        this._eventSource = new EventSource(SSE_PATH);
+        this._eventSource.onmessage = async (event) => {
             this.lastSeen = Date.now();
             log('-------------------------------------');
             log('!! sse onmessage handler got', event.data);
@@ -34,7 +36,15 @@ export class TransportHTTPClientSide implements ITransport {
                 }
             }
         }
+        this._eventSource.onerror = () => { console.error('EventSource error.') }
+        this._eventSource.onopen = () => { console.log('SSE connection established with server.') }
         log('...constructor is done.');
+    }
+    async status(): Promise<CONNECTION_STATUS> {
+        if (this._eventSource.readyState === 0) { return 'CONNECTING'; }
+        if (this._eventSource.readyState === 1) { return 'OPEN'; }
+        if (this._eventSource.readyState === 2) { return 'CLOSED'; }
+        return 'ERROR';
     }
     async send(packet: Obj): Promise<void> {
         log('send (by POST)', JSON.stringify(packet));
@@ -68,7 +78,7 @@ export class TransportHTTPClientSide implements ITransport {
         return () => this._cbs.delete(cb);
     }
     close(): void {
-        // nothing to do
+        this._eventSource.close();
     }
 }
 
