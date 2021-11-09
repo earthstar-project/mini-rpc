@@ -1,13 +1,15 @@
-import express from 'express';
+import express, { response } from 'express';
 import SSE from 'express-sse';
-//var SSE = require('express-sse');
 
 import { ITransport, Obj } from './types';
 import { sleep } from './util';
 
 let log = (...args: any[]) => console.log('SERVER  ', ...args);
 
-type Cb = (packet: Obj) => Promise<void>;
+let SSE_PATH = '/sync/sse'
+let POST_PATH = '/sync/post'
+
+type Cb = (packet: Obj) => Promise<any>;
 type Thunk = () => void;
 class TransportHttpServer implements ITransport {
     _cbs: Set<Cb> = new Set();
@@ -20,19 +22,22 @@ class TransportHttpServer implements ITransport {
         this._app = app;
         app.use(express.json());
         // listen for incoming POSTs
-        app.post('/sync', async (req: any, res: any) => {
-            log('!! express got a POST request');
+        app.post(POST_PATH, async (req: any, res: any) => {
+            log('!! express got a POST request at ' + POST_PATH);
             for (let cb of this._cbs) {
-                await cb(req.body);
+                let resPacket = await cb(req.body);
+                if (resPacket) {
+                    await this.send(resPacket);
+                }
             }
             await sleep(2000);
             res.sendStatus(200);
         });
 
         // set up SSE for outgoing messages
-        log('constructor set up SSE for outoing messages at /sync-sse');
+        log('constructor set up SSE for outoing messages at ' + SSE_PATH);
         this._sse = new SSE();
-        app.get('/sync-sse', this._sse.init);
+        app.get(SSE_PATH, this._sse.init);
 
         // turn on heartbeat
         let heartbeatInterval = setInterval(() => this._sendHeartbeat(), 10000);
@@ -70,6 +75,7 @@ let main = async () => {
     let transport = new TransportHttpServer(app);
     transport.onReceive(async (packet: Obj) => {
         log('~~~ SERVER TRANSPORT GOT A MESSAGE:~~~', packet);
+        return 'server response: 123'
     });
 
     log('main: setting up default / route in express');
