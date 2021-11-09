@@ -5,19 +5,21 @@ let log = (...args: any[]) => console.log('CLIENT  ', ...args);
 type Cb = (packet: Obj) => Promise<void>;
 type Thunk = () => void;
 class TransportHTTPClientSide implements ITransport {
-    cbs: Set<Cb> = new Set();
+    _cbs: Set<Cb> = new Set();
+    lastSeen: number = 0;  // timestamp we were last connected to the server
     constructor(public url: string, public port: number) {
         log('constructor');
         log('constructor: set up SSE listening at /sync-sse');
         // set up listening for SSE
         let evtSource = new EventSource('/sync-sse:' + this.port);
         evtSource.onmessage = async (event) => {
+            this.lastSeen = Date.now();
             log('-------------------------------------');
             log('!! sse onmessage handler got', event.data);
             log('  |  data', event.data);
             log('  |  lastEventId', event.lastEventId);
             log('  |  timestamp', event.timeStamp);  // since page load
-            for (let cb of this.cbs) {
+            for (let cb of this._cbs) {
                 if (event.data === undefined || event.data === 'undefined' || event.data.length === 0 || event.data === '""') {
                     log('  |  (heartbeat)');
                 } else {
@@ -46,15 +48,16 @@ class TransportHTTPClientSide implements ITransport {
         if (response.text.length > 0) {
             let packetResponse = JSON.parse(await response.json());
             log('send: packetResponse is', packetResponse);
-            for (let cb of this.cbs) {
+            for (let cb of this._cbs) {
                 await cb(packetResponse);
             }
         }
         log('...send is done.');
+        this.lastSeen = Date.now();
     }
     onReceive(cb: Cb): Thunk {
-        this.cbs.add(cb);
-        return () => this.cbs.delete(cb);
+        this._cbs.add(cb);
+        return () => this._cbs.delete(cb);
     }
 }
 
