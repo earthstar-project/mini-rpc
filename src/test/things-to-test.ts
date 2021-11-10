@@ -44,6 +44,42 @@ export let myFunctions = {
     hello: (name: string) => { return `Hello ${name}`; },
     throwMyError: () => { throw new MyError('text of error'); },
     throwMyError2: () => { throw new MyError2('text of error2'); },
+    generator0: async function* () {
+        for (let ii = 0; ii <= 999; ii++) {
+              if (ii > 5) {
+                break;
+              }
+              await sleep(100);
+              yield ii;
+            }
+    },
+    generator1: async function* (max: number) {
+        for (let ii = 0; ii <= max; ii++) {
+              if (ii > 5) {
+                break;
+              }
+              await sleep(100);
+              yield ii;
+            }
+    },
+    generator2: async function* (max: number, limit: number) {
+        for (let ii = 0; ii <= max; ii++) {
+              if (ii > limit) {
+                break;
+              }
+              await sleep(100);
+              yield ii;
+            }
+    },
+    generatorError: async function* () {
+        for (let ii = 0; ii <= 999; ii++) {
+              if (ii > 5) {
+                throw new MyError("can't count higher than 5");
+              }
+              await sleep(100);
+              yield ii;
+            }
+    },
 };
 
 export class MyClass {
@@ -73,4 +109,41 @@ export class MyClass {
     hello(name: string) { return `Hello ${name}`; }
     throwMyError() { throw new MyError('text of error'); }
     throwMyError2() { throw new MyError2('text of error2'); }
+    
+    async * generator0 () {
+        for (let ii = 0; ii <= 999; ii++) {
+              if (ii > 5) {
+                break;
+              }
+              await sleep(100);
+              yield ii;
+            }
+    }
+    async * generator1 (max: number) {
+        for (let ii = 0; ii <= max; ii++) {
+              if (ii > 5) {
+                break;
+              }
+              await sleep(100);
+              yield ii;
+            }
+    }
+    async * generator2 (max: number, limit: number) {
+        for (let ii = 0; ii <= max; ii++) {
+              if (ii > limit) {
+                break;
+              }
+              await sleep(100);
+              yield ii;
+            }
+    }
+    async * generatorError () {
+        for (let ii = 0; ii <= 999; ii++) {
+              if (ii > 5) {
+                throw new MyError("can't count higher than 5");
+              }
+              await sleep(100);
+              yield ii;
+            }
+    }
 };

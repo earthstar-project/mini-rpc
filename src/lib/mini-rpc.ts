@@ -1,4 +1,5 @@
 import {
+    isGenerator,
     logEvaluator,
     logHandler,
     makeId,
@@ -15,15 +16,45 @@ export interface Req {
     args: any[],
 }
 
-// Each request will make one corresponding Response (officially called Res in the code).
-// It has as matching id and either a result or an error.
+// Each Request will create one or many packets as a response.
+// Each packet has a matching id and can return a result, an error,
+// and has a property indicating that it could be the last packet of the series.
 // The error is a node Error class that's been squashed down to a regular JSON-friendly
 // object (see errToObj).
-export interface Res {
-    id: string,
-    result?: any,  // either a result will be present...
-    err?: string,  // or an error.
+
+interface PacketOneShot {
+  id: string;
+  result: any;
+  error: null;
+  done: true;
 }
+
+interface PacketMidStream {
+  id: string;
+  result: any;
+  error: null;
+  done: false;
+}
+
+interface PacketEndStream {
+  id: string;
+  result: null;
+  error: null;
+  done: true;
+}
+
+interface PacketError {
+  id: string;
+  result: null;
+  error: string;
+  done: true;
+}
+    
+type Packet =
+    | PacketOneShot
+    | PacketMidStream
+    | PacketEndStream
+    | PacketError;
 
 //================================================================================
 // UNDEFINED
@@ -105,122 +136,150 @@ export let stringToError = (s: string): Error => {
 
 //================================================================================
 
-// This basic proxy wraps around a object-of-functions or a class instance.
-// It intercepts calls to the functions, runs the functions,
-// and returns the results as promises.
-// This essentually does nothing but is useful as an educational starting point.
-// It never even creates Req or Res objects.
-// Don't use this in production :)
-let makeSimpleProxy = <Fns>(functions: Fns) : Fns => {
-    let handler = {
-        get: function(target: any, prop: any, receiver: any) {
-            return async (...args: any[]): Promise<any> => {
-                logHandler(`calling ${prop}(${args})`);
-                let fn = target[prop]
-                let result = await fn(...args);
-                logHandler(' -->', result);
-                return result;
-            }
-        }
+// Transforms an object-of-functions or class instance + Request
+// into an generator of packets (see above).
+// If the called method is a generator itself, 
+export async function* evaluator(functions: any, req: Req): AsyncGenerator<Packet> {
+  const fn = functions[req.method];
+ 
+
+  try {
+     // If the called method is a generator itself,
+     // We expect to return many packets.
+    if (isGenerator(fn)) {
+      const iterator = fn.call(functions, ...req.args);
+      for await (const item of iterator) {
+        const packet: PacketMidStream = {
+          id: req.id,
+          result: item,
+          error: null,
+          done: false,
+        };
+        yield packet;
+      }
+      // Return a packet indicating the stream is done.
+      const packet: PacketEndStream = {
+        id: req.id,
+        result: null,
+        error: null,
+        done: true,
+      };
+      yield packet;
+    } else {
+      // If the called method is not a generator,
+      // We should only return one packet.
+      const result = await fn.call(functions, ...req.args);
+      const packet: PacketOneShot = {
+        id: req.id,
+        result,
+        error: null,
+        done: true,
+      };
+      yield packet;
+    }
+  } catch (e) {
+    // Errors in the stream get converted to JSON error packets
+    const packet: PacketError = {
+      id: req.id,
+      result: null,
+      error: `${e.name}: ${e.message}`,
+      done: true,
     };
-    return new Proxy(functions, handler) as Fns;
+    yield packet;
+  }
 }
+export type EvaluatorFn = typeof evaluator;
 
-//================================================================================
-
-// Given a object-of-functions or class instance, and a specific Request,
-// exectute the request by calling the corresponding method.
-// Return a Response containing the result, or a Response containing an error.
-// This is always an async function no matter if the underlying method
-// is async or not.
-export let evaluator = async (functions: any, req: Req): Promise<Res> => {
-    let fn = functions[req.method];
-    if (fn === undefined) {
-        // rpc user error: bad method name
-        let err = new Error(`unknown RPC method: ${JSON.stringify(req.method)}`);
-        logEvaluator(err.message);
-        return {
-            id: req.id,
-            err: errorToString(err),
-        };
-    }
-    try {
-        logEvaluator(`calling ${JSON.stringify(req.method)}...`);
-        // call the function.
-        // we need to make sure "this" is correctly handled, since we've extracted
-        // the fn from its context.
-        // 3 equivalent ways of doing it:
-        //    * up above, let fn = functions[req.method].bind(functions)
-        //    * here, fn.call(functions, ...req.args)
-        //    * here, functions[req.method](...req.args)
-        let result = await fn.call(functions, ...req.args);
-        logEvaluator(`called  ${JSON.stringify(req.method)}... complete`);
-        return {
-            id: req.id,
-            result: result,
-        };
-    } catch (error) {
-        // userland error: the method itself threw an error.
-        logEvaluator(`the ${JSON.stringify(req.method)} method threw an error:`, error.message);
-        //showError(error);
-        return {
-            id: req.id,
-            err: errorToString(error),
-        };
-    }
+let checkArgs = (...args: any[]) => {
+    // We don't allow undefined function arguments because it's hard to
+      // safely round-trip them through JSON.
+      // TODO: we should inspect the args more deeply to check for undefined lurking in an array or something
+    if (args.includes(undefined)) {
+        throw new UndefinedNotAllowedError(
+          `mini-rpc won't let you use undefined as a function argument.  Use null, if you can.`,
+        );
+      }
 }
-type EvaluatorFn = typeof evaluator;
 
 // Make a proxy around a object-of-functions or class instance, and an evaluator function.
 // This proxy converts the call to a Req, evaluates it
-// using the evaluator function to get a Res, then converts the
-// Res back into a regular return value or throws the error
+// using the evaluator generator to get a series of packets,
+// And turns those into a regular result, an async generator, or an error
 // if there is one.
-export let makeProxy = <Fns>(functions: Fns, evaluator: EvaluatorFn) : Fns => {
-    let handler = {
-        get: function(target: any, prop: any, receiver: any) {
-            return async (...args: any[]): Promise<any> => {
-                logHandler(`calling ${prop}(${args})`);
+export let makeProxy = <Fns>(functions: Fns, evaluator: EvaluatorFn): Fns => {
+  const handler = {
+    get: function (target: any, prop: any, receiver: any) {
+      // If the called method is a generator itself,
+      // We need to return a new async generator.
+      if (isGenerator(target[prop])) {
+        async function* generator(...args: any[]): AsyncGenerator<any> {
+          logHandler(`calling ${prop}(${args})`);
 
-                // We don't allow undefined function arguments because it's hard to
-                // safely round-trip them through JSON.
-                // TODO: we should inspect the args more deeply to check for undefined lurking in an array or something
-                if (args.includes(undefined)) {
-                    throw new UndefinedNotAllowedError(`In call to ${prop}: mini-rpc won't let you use undefined as a function argument.  Use null, if you can.`);
-                } 
+          checkArgs(...args)
 
-                let req: Req = {
-                    id: makeId(),
-                    method: prop,
-                    args,
-                }
-                logHandler('    req:', req);
+          const req: Req = {
+            id: makeId(),
+            method: prop,
+            args,
+          };
+          
+          logHandler("    req:", req);
+          logHandler("    evaluating...");
+  
 
-                logHandler('    evaluating...');
-                let res: Res = await evaluator(functions, req);
-                logHandler('    ...done evaluating, res is:', res);
+          for await (const packet of evaluator(functions, req)) {
+            logHandler(`    ...got new result for ${req.id}:`, packet);
+            
+            
 
-                if (res.err) {
-                    logHandler(' ~ ~ ~> ', res.err);
-                    logHandler('      > reconstructing error and throwing it');
-                    let error = stringToError(res.err);
-                    //showError(error);
-                    throw error;
-                } else {
-                    // We allow undefined as a result since it's so common for a function to not return anything.
-                    // TODO: we should inspect the return value more deeply to check for undefined lurking in an array or something,
-                    // and throw an error if that happens.
-
-                    // If the 'result' property is undefined and it's been JSON-roundtripped, the property will go away,
-                    // so let's restore it:
-                    if (! ('result' in res)) {
-                        res.result = undefined;
-                    }
-                    logHandler('    -->', res.result);
-                    return res.result;
-                }
+            if (packet.error) {
+              logHandler(" ~ ~ ~> ", packet.error);
+              logHandler("      > reconstructing error and throwing it");
+              const error = stringToError(packet.error);
+            
+              throw error;
             }
+
+            if (packet.done) {
+                logHandler(`    ${req.id} finished evaluating`);
+              break;
+            }
+
+            yield packet.result;
+          }
         }
-    };
-    return new Proxy(functions, handler) as Fns;
+
+        return generator;
+      }
+
+      return async (...args: any[]): Promise<any> => {
+        console.log(`calling ${prop}(${args})`);
+
+        checkArgs(...args);
+
+        const req: Req = {
+          id: makeId(),
+          method: prop,
+          args,
+        };
+        
+        logHandler("    req:", req);
+        logHandler("    evaluating...");
+
+        for await (const packet of evaluator(functions, req)) {
+          logHandler("    ...done evaluating, res is:", packet);
+
+          if (packet.error) {
+            logHandler(" ~ ~ ~> ", packet.error);
+            logHandler("      > reconstructing error and throwing it");
+            const error = stringToError(packet.error);
+            throw error;
+          }
+
+          return packet.result;
+        }
+      };
+    },
+  };
+  return new Proxy(functions, handler) as Fns;
 }
