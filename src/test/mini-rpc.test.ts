@@ -1,190 +1,86 @@
-import t = require('tap');
-//t.runOnly = true;
+import test = require('tape');
 
-import { makePairOfTransportLocal } from '../lib/transport-local';
-import { RpcClient } from '../lib/rpcClient';
-import { RpcServer } from '../lib/rpcServer';
+import { IPeerConnection, MessageResponseWithData, MessageResponseWithError } from '../lib/types';
+import { sleep } from '../lib/util';
+import { makeTransportLocal } from '../lib/transportLocal';
+import { PeerConnection } from '../lib/peerConnection';
 
-import {
-    myFunctions,
-} from './things-to-test';
-import { makeProxy } from '../lib/proxy';
+let log = console.log;
 
-t.test(`basic request-respose`, async (t: any) => {
-    let [transportForClient, transportForServer] = makePairOfTransportLocal();
-    let rpcClient = new RpcClient(transportForClient);
-    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
+test('local transport', async (t: any) => {
 
-    let result = await rpcClient.request('doubleAsync', 3);
-    t.deepEqual(result, 6)
-});
+    let [ chanPair1, chanPair2 ] = makeTransportLocal();
+    let peer1 = new PeerConnection(chanPair1);
+    let peer2 = new PeerConnection(chanPair2);
 
-t.test(`basics using an object-of-functions`, async (t: any) => {
-    let [transportForClient, transportForServer] = makePairOfTransportLocal();
-    let rpcClient = new RpcClient(transportForClient);
-    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
-
-    t.deepEqual(await rpcClient.request('doubleSync', 1), 2, 'doubleSync');
-    t.deepEqual(await rpcClient.request('doubleAsync', 3), 6, 'doubleAsync');
-    t.deepEqual(await rpcClient.request('addSlowly', 1, 2), 3, 'addSlowly');
-    t.deepEqual(await rpcClient.request('hello', 'Susan'), 'Hello Susan', 'hello');
-
-    t.done();
-});
-
-t.test(`proxy basics using an object-of-functions`, async (t: any) => {
-    let [transportForClient, transportForServer] = makePairOfTransportLocal();
-    let rpcClient = new RpcClient(transportForClient);
-    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
-    let proxy = makeProxy<typeof myFunctions>(myFunctions, rpcClient);
-
-    t.deepEqual(await proxy.doubleSync(1), 2, 'doubleSync');
-    t.deepEqual(await proxy.doubleAsync(3), 6, 'doubleAsync');
-    t.deepEqual(await proxy.addSlowly(1, 2), 3, 'addSlowly');
-    t.deepEqual(await proxy.hello('Susan'), 'Hello Susan', 'hello');
-
-    t.done();
-});
-
-t.test(`error from server is re-thrown on client`, async (t: any) => {
-    let [transportForClient, transportForServer] = makePairOfTransportLocal();
-    let rpcClient = new RpcClient(transportForClient);
-    let rpcServer = new RpcServer(transportForServer, myFunctions, {});
-
-    let msg = 'should get error from server when there is no such function'
-    try {
-        let no = await rpcClient.request('noSuchFunction', 1);
-        t.fail(msg);
-    } catch (err) {
-        t.pass(msg);
-    }
-
-    t.done();
-});
-
-/*
-t.test(`basics using a class instance`, async (t: any) => {
-    let myClass = new MyClass();
-    let proxy = makeProxy(myClass, evaller);
-    t.deepEqual(await proxy.doubleSync(1), 2, 'doubleSync');
-    t.deepEqual(await proxy.doubleAsync(1), 2, 'doubleAsync');
-    t.deepEqual(await proxy.addSlowly(1, 2), 3, 'addSlowly');
-    t.deepEqual(await proxy.hello('Susan'), 'Hello Susan', 'hello');
-    t.done();
-});
-
-t.test(`binding class methods`, async (t: any) => {
-    let myClass = new MyClass();
-    let proxy = makeProxy(myClass, evaller);
-    t.deepEqual(await proxy.getClassVar(), 123, 'getClasssVar');
-    t.done();
-});
-
-t.test(`custom error handling: registered`, async (t: any) => {
-    let proxy = makeProxy(myFunctions, evaller);
-    try {
-        await proxy.throwMyError();
-        t.fail('should throw an error');
-    } catch (error) {
-        t.pass('should throw an error');
-        t.strictEqual(error.name, 'MyError', 'error has the correct name');
-        t.strictEqual(error.message, 'text of error', 'error has the correct message');
-        t.true(error instanceof MyError, 'error has the correct actual class');
-        //showError(error);
-    }
-    t.done();
-});
-
-t.test(`custom error handling: registered, using a class`, async (t: any) => {
-    let proxy = makeProxy(new MyClass(), evaller);
-    try {
-        await proxy.throwMyError();
-        t.fail('should throw an error');
-    } catch (error) {
-        t.pass('should throw an error');
-        t.strictEqual(error.name, 'MyError', 'error has the correct name');
-        t.strictEqual(error.message, 'text of error', 'error has the correct message');
-        t.true(error instanceof MyError, 'error has the correct actual class');
-        //showError(error);
-    }
-    t.done();
-});
-
-t.test(`custom error handling: not registered`, async (t: any) => {
-    let proxy = makeProxy(myFunctions, evaller);
-    try {
-        await proxy.throwMyError2();
-        t.fail('should throw an error2');
-    } catch (error) {
-        t.pass('should throw an error2');
-        t.strictEqual(error.name, 'MyError2', 'error has the correct name');
-        t.strictEqual(error.message, 'text of error2', 'error has the correct message');
-        t.false(error instanceof MyError2, 'error does not have the correct actual class, because it is not registered');
-        //showError(error);
-    }
-    t.done();
-});
-
-t.test(`various types`, async (t: any) => {
-    let proxy = makeProxy(myFunctions, evaller);
-    t.strictEqual(await proxy.identity(null)     , null   , 'null');
-    t.strictEqual(await proxy.identity('str')    , 'str'  , '"str"');
-    t.strictEqual(await proxy.identity(123)      , 123    , '123');
-    t.deepEqual(  await proxy.identity({a: 1})   , {a: 1} , '{a: 1}');
-    t.deepEqual(  await proxy.identity([1, 2])   , [1, 2] , '[1, 2]');
-    t.done();
-});
-
-t.test(`various types using a class`, async (t: any) => {
-    let proxy = makeProxy(new MyClass(), evaller);
-    t.strictEqual(await proxy.identity(null)     , null   , 'null');
-    t.strictEqual(await proxy.identity('str')    , 'str'  , '"str"');
-    t.strictEqual(await proxy.identity(123)      , 123    , '123');
-    t.deepEqual(  await proxy.identity({a: 1})   , {a: 1} , '{a: 1}');
-    t.deepEqual(  await proxy.identity([1, 2])   , [1, 2] , '[1, 2]');
-    t.done();
-});
-
-t.test(`undefined is not allowed`, async (t: any) => {
-    let proxy = makeProxy(myFunctions, evaller);
-
-    t.strictEqual(await proxy.ok1(123), 'ok', 'ok1 works');
-
-    try {
-        await proxy.ok1(undefined);
-        t.fail('throws on undefined argument')
-    } catch (error) {
-        if (error instanceof UndefinedNotAllowedError) {
-            t.pass('throws on undefined argument')
-        } else {
-            throw error;
+    let events: string[] = [];
+    peer2.onNotify((msg) => {
+        log('peer2 onNotify:', msg);
+        events.push('--- peer2 was notified');
+    });
+    peer2.onRequest(async (request) => {
+        events.push('--- peer2 got request');
+        let num = request.args[0];
+        let doubled = num * 2;
+        let response: MessageResponseWithData = {
+            kind: 'RESPONSE',
+            id: request.id,
+            data: doubled,
         }
-    }
+        log('peer2 onRequest', request, '-->', response);
+        return response;
+    });
+    peer1.onClose(() => { events.push('--- peer1 closed'); });
+    peer2.onClose(() => { events.push('--- peer2 closed'); });
 
-    try {
-        await proxy.ok2(undefined, 123);
-        t.fail('throws on undefined argument 1 of 2')
-    } catch (error) {
-        if (error instanceof UndefinedNotAllowedError) {
-            t.pass('throws on undefined argument 1 of 2')
-        } else {
-            throw error;
-        }
-    }
+    events.push('');
+    events.push('peer1 will notify...');
+    await peer1.notify('boop', 1, 2, 3);
+    events.push('...peer1 did notify');
 
-    try {
-        await proxy.ok2(123, undefined);
-        t.fail('throws on undefined argument 2 of 2')
-    } catch (error) {
-        if (error instanceof UndefinedNotAllowedError) {
-            t.pass('throws on undefined argument 2 of 2')
-        } else {
-            throw error;
-        }
-    }
+    await sleep(50);
+    events.push('');
+    events.push('peer1 will request...');
+    let sixtysix = await peer1.request('double', 33);
+    t.equal(sixtysix, 66, 'peer1 got doubled number back');
+    events.push(`...peer1 did request.  got ${sixtysix}`);
 
-    t.strictEqual(await proxy.returnUndefined(), undefined, 'allows undefined return value');
+    await sleep(50);
+    events.push('');
+    events.push('peer1 will seal...');
+    peer1.seal();
+    events.push('...peer1 did seal');
 
-    t.done();
+    await sleep(50);
+    events.push('');
+    events.push('peer2 will close...');
+    peer2.close();
+    events.push('...peer2 did close');
+
+    await sleep(50);
+    events.push('');
+    log('events:', events);
+
+    let expectedEvents = [
+        '',
+        'peer1 will notify...',
+        '--- peer2 was notified',
+        '...peer1 did notify',
+        '',
+        'peer1 will request...',
+        '--- peer2 got request',
+        '...peer1 did request.  got 66',
+        '',
+        'peer1 will seal...',
+        '--- peer1 closed',
+        '--- peer2 closed',
+        '...peer1 did seal',
+        '',
+        'peer2 will close...',
+        '...peer2 did close',
+        ''
+    ]
+    t.deepEqual(events, expectedEvents, 'events are in expected order');
+
+    t.end();
 });
-*/

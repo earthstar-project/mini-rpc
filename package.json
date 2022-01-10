@@ -1,7 +1,7 @@
 {
   "name": "@earthstar-project/mini-rpc",
   "version": "10.0.0-beta.2",
-  "description": "A small simple RPC framework built in Typescript.",
+  "description": "An RPC framework built in Typescript.",
   "author": "Cinnamon <cinnamon_npm@fastmail.com>",
   "homepage": "https://github.com/earthstar-project/mini-rpc",
   "license": "LGPL-3.0-only",
@@ -12,33 +12,23 @@
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
   "scripts": {
-    "clean": "rm -rf coverage .nyc_output build/*.js* build/*.d.ts build/lib build/test",
-    "typecheck": "tsc --noEmit",
-    "build": "node esbuild-client.js && node esbuild-server.js",
-    "serve": "node build/transport-http-server.js",
-    "start-server": "VERBOSE=true node build/http-server-demo.js",
-    "start-client": "VERBOSE=true node build/http-client-demo.js",
-    "build-tsc": "tsc",
+    "clean": "rm -rf build coverage .nyc_output",
+    "build": "tsc",
     "main": "VERBOSE=true node build/main.js",
-    "test": "tap -Rspec --jobs=1 build/test/*.test.js",
+    "test": "tape build/test/*.js | tap-spec",
     "test-coverage": "npm test -- --coverage-report=lcov",
+    "clean-build-test": "npm run clean && npm run build && npm test",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "devDependencies": {
-    "@types/express": "^4.17.13",
     "@types/node": "^16.11.6",
-    "@types/tap": "^15.0.5",
-    "browser-run": "^10.1.0",
-    "esbuild": "^0.13.12",
-    "node-static": "^0.7.11",
-    "tap": "^14.11.0",
-    "typescript": "^4.4.4"
+    "@types/tape": "^4.13.2",
+    "tap-spec": "^5.0.0",
+    "tape": "^5.4.0",
+    "typescript": "~4.5.4"
   },
   "dependencies": {
     "chalk": "^4.1.2",
-    "concurrency-friends": "^5.0.1",
-    "express": "^4.17.1",
-    "express-sse": "^0.5.3",
-    "zod": "^3.11.6"
+    "concurrency-friends": "^5.2.0"
   }
 }
