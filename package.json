@@ -4,7 +4,7 @@
   "description": "A small simple RPC framework built in Typescript.",
   "author": "Cinnamon <cinnamon_npm@fastmail.com>",
   "homepage": "https://github.com/earthstar-project/mini-rpc",
-  "license": "ISC",
+  "license": "LGPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/earthstar-project/mini-rpc.git"
@@ -12,16 +12,15 @@
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
   "scripts": {
-    "clean": "rm -rf coverage .nyc_output build/*.js*",
-    "serve": "node build/transport-http-server.js",
+    "clean": "rm -rf coverage .nyc_output build/*.js* build/*.d.ts build/lib build/test",
+    "typecheck": "tsc --noEmit",
     "build": "node esbuild-client.js && node esbuild-server.js",
-    "build-tsc": "tsc --noEmit",
+    "serve": "node build/transport-http-server.js",
     "start-server": "VERBOSE=true node build/http-server-demo.js",
     "start-client": "VERBOSE=true node build/http-client-demo.js",
-    "start-local-demo": "VERBOSE=true node build/local-demo.js",
+    "build-tsc": "tsc",
     "main": "VERBOSE=true node build/main.js",
-    "test": "tap -Rspecy --jobs=1 build/test/*.test.js",
-    "test-mini-rpc": "tap -Rspecy --jobs=1 build/test/mini-rpc.test.js",
+    "test": "tap -Rspec --jobs=1 build/test/*.test.js",
     "test-coverage": "npm test -- --coverage-report=lcov",
     "prepublishOnly": "npm run clean && npm run build"
   },
