@@ -26,22 +26,26 @@ export type MessageKind =
 
 export interface MessageNotify {
     kind: 'NOTIFY',
+    fromPeerId: string,
     method: string,
     args: any[],
 }
 export interface MessageRequest {
     kind: 'REQUEST',
+    fromPeerId: string,
     id: string,
     method: string,
     args: any[],
 }
 export interface MessageResponseWithData {
     kind: 'RESPONSE',
+    fromPeerId: string,
     id: string,
     data: any,
 }
 export interface MessageResponseWithError {
     kind: 'RESPONSE',
+    fromPeerId: string,
     id: string,
     error: any,
 }
@@ -89,6 +93,8 @@ export interface ITransport<T> {
 */
 export interface IPeerConnection {
     // constructor is given a Transport and any other options like urls and timeouts
+
+    get peerId(): string;  // a random UUID, chosen at every startup
 
     notify(method: string, ...args: any[]): Promise<void>;
     onNotify(cb: (msg: MessageNotify) => void): Thunk;

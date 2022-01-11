@@ -6,12 +6,10 @@ import { sleep } from './util';
 
 /*
     Make a transport which runs on the server side of an HTTP connection.
-    * It sends messages by queueing them and waiting for the client to poll using GET.
-    * It receives messages via POST.
+    * It receives batches of messages via POST
+    * It replies with a batch of messages it's queued up for that client.
+    Message batches are JSON arrays of messages.
 
-    It actually sends and receives batches of messages (arrays), but they
-    always only have one item in them right now.  TODO: accumulate batches,
-    then send them up all at once.
 */
 /*
 export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { stopServer: Thunk } => {

@@ -22,6 +22,7 @@ export class PeerConnection implements IPeerConnection {
     _closeCbs: Set<any> = new Set();
     _isClosed: boolean = false;
     _deferredRequests: Map<string, Deferred<MessageResponse>> = new Map(); // keys are ids
+    _peerId: string = makeId();
 
     constructor(transport: ITransport<Message>) {
         this._transport = transport;
@@ -52,6 +53,7 @@ export class PeerConnection implements IPeerConnection {
                             // successful call to the onRequest callback
                             let response: MessageResponseWithData = {
                                 kind: 'RESPONSE',
+                                fromPeerId: this._peerId,
                                 id: msg.id,
                                 data
                             };
@@ -60,6 +62,7 @@ export class PeerConnection implements IPeerConnection {
                             // error in the onRequest callback
                             let response: MessageResponseWithError = {
                                 kind: 'RESPONSE',
+                                fromPeerId: this._peerId,
                                 id: msg.id,
                                 error
                             };
@@ -89,9 +92,14 @@ export class PeerConnection implements IPeerConnection {
         }, 0);
     }
 
+    get peerId(): string {
+        return this._peerId;
+    }
+
     async notify(method: string, ...args: any[]): Promise<void> {
         const msg: MessageNotify = {
             kind: 'NOTIFY',
+            fromPeerId: this._peerId,
             method,
             args,
         };
@@ -111,6 +119,7 @@ export class PeerConnection implements IPeerConnection {
         this._deferredRequests.set(id, deferred);
         const msg: MessageRequest = {
             kind: 'REQUEST',
+            fromPeerId: this._peerId,
             id,
             method,
             args,
