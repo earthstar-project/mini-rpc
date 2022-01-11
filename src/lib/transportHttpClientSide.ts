@@ -1,4 +1,5 @@
 import { Chan } from 'concurrency-friends';
+import fetch from 'cross-fetch';
 
 import { ChanPair, Message } from './types';
 import { sleep } from './util';
@@ -22,6 +23,9 @@ export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
     let outChan = new Chan<Message>(0);
 
     // Outgoing: user sent a message. POST it up to server.
+    // If we have errors, keep polling in case we were offline but have since
+    // gone online again.
+    // TODO: if we can't send it right now, save it to a buffer.
     outChan.forEach(async (msg: Message) => {
         try {
             let res = await fetch(url, {
@@ -34,19 +38,18 @@ export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
             })
             if (!res.ok) {
                 console.error(`ERROR: POST ${url} returned status ${res.status}`);
-                inChan.close();
-                outChan.close();
+                // TODO: save msg to outgoing buffer or put back into the chan (?)
             }
         } catch (err) {
             console.error('ERROR while sending out:', err);
-            inChan.close();
-            outChan.close();
+            // TODO: save msg to outgoing buffer or put back into the chan (?)
         }
     });
 
-
     // Incoming: start a thread to poll the server for updates with GET
-    // and push them to the user over the chan
+    // and push them to the user over the chan.
+    // If we have errors, keep polling in case we were offline but have since
+    // gone online again.
 
     let isPolling: boolean = true;
     let stopPolling = () => { isPolling = false; }
@@ -57,9 +60,6 @@ export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
                 let res = await fetch(url);
                 if (!res.ok) {
                     console.error(`ERROR: GET ${url} returned status ${res.status}`);
-                    inChan.close();
-                    outChan.close();
-                    return;
                 }
                 let msgs = await res.json() as Message[];
                 for (let msg of msgs) {
@@ -67,11 +67,8 @@ export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
                 }
             } catch (err) {
                 console.error('ERROR while getting incoming msgs:', err);
-                inChan.close();
-                outChan.close();
-                return;
             }
-            await sleep(3000);  // TODO: cancel can take up to this long to take effect
+            await sleep(1000);  // TODO: cancel can take up to this long to take effect
         }
     }, 1);
 

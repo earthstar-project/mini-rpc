@@ -1,6 +1,5 @@
 import t from 'tap';
 
-import { MessageResponseWithData } from '../lib/types';
 import { sleep } from '../lib/util';
 import { makeTransportLocal } from '../lib/transportLocal';
 import { PeerConnection } from '../lib/peerConnection';
