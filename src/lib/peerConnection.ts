@@ -89,8 +89,7 @@ export class PeerConnection implements IPeerConnection {
                         }
                     }
                 } else {
-                    const kind = (msg as any).kind;
-                    console.error(`WARNING: unexpected message kind: ${kind} |`, msg);
+                    console.error(`WARNING: unexpected message kind: ${(msg as any).kind} |`, msg);
                 }
             }
         }, 0);
