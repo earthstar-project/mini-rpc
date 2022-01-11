@@ -5,6 +5,7 @@ import {
     Message,
     Thunk,
 } from './types';
+import { logTransport } from './util';
 
 /*
     The most basic transport -- you provide it with input and output Chans.
@@ -17,23 +18,31 @@ export class TransportBasic implements ITransport<Message> {
     _isClosed: boolean = false;
     _onCloseCbs: Set<Thunk> = new Set();
     constructor(inChan: Chan<Message>, outChan: Chan<Message>) {
+        logTransport('constructor');
         this.inChan = inChan;
         this.outChan = outChan;
-        this.inChan.onClose.subscribe(() => {this.close(); });
+        this.inChan.onClose.subscribe(() => { this.close(); });
         this.outChan.onClose.subscribe(() => { this.close(); });
     }
     get isClosed() {
         return this._isClosed;
     }
     close() {
-        if (!this._isClosed) {
-            for (let cb of this._onCloseCbs) { cb(); }
+        logTransport('/--transport.close - ');
+        if (this._isClosed) {
+            logTransport('\\__transport.close - was already closed');
+            return;
         }
         this._isClosed = true;
+        logTransport(' - transport.close - running onClose cbs');
+        for (let cb of this._onCloseCbs) { cb(); }
+        logTransport(' - transport.close - closing Chans');
         this.inChan.close();
         this.outChan.close();
+        logTransport('\\__transport.close - done');
     }
     onClose(cb: Thunk): Thunk {
+        logTransport('transport.onClose subscription being added');
         this._onCloseCbs.add(cb);
         return () => { this._onCloseCbs.delete(cb); }
     }
