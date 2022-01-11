@@ -3,9 +3,21 @@ import { Chan } from 'concurrency-friends';
 import { ChanPair, Message } from './types';
 import { sleep } from './util';
 
+/*
+    Make a transport which runs on the client side of an HTTP connection.
+    This is horribly inefficient right now:
+    * It sends messages up to the server by POSTing each one separately.
+    * It receives messages by polling the server every couple of seconds.
+
+    It actually sends and receives batches of messages (arrays), but they
+    always only have one item in them right now.  TODO: accumulate batches,
+    then send them up all at once.
+
+    TODO: write the corresponding server side of this.
+*/
 export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
-    // Make chans with a buffer size of zero
-    // (a put blocks until a get happens, or vice versa).
+    // Make chans with a buffer size of zero.
+    // (A put() blocks until a get() happens, or vice versa).
     let inChan = new Chan<Message>(0);
     let outChan = new Chan<Message>(0);
 
@@ -32,11 +44,13 @@ export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
         }
     });
 
-    let isPolling: boolean = true;
-    let stopPolling = () => { isPolling = false; }
 
     // Incoming: start a thread to poll the server for updates with GET
     // and push them to the user over the chan
+
+    let isPolling: boolean = true;
+    let stopPolling = () => { isPolling = false; }
+
     setTimeout(async () => {
         while (isPolling) {
             try {
@@ -65,6 +79,7 @@ export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
     // or by sealing the outChan (it will be closed after all items
     // have been sent).
     // This is needed to make sure the polling timer is stopped.
+    // TODO: make sure closing one chan propagates to the other chan.
     inChan.onClose.subscribe(stopPolling);
     outChan.onClose.subscribe(stopPolling);
 
