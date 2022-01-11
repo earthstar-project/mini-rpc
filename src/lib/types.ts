@@ -2,31 +2,7 @@ import { Chan } from 'concurrency-friends';
 
 export type Thunk = () => void;
 
-/*
-    A network transport is represented by a pair of Chans,
-    one for incoming messages and one for outgoing messages.
-    (These are object streams, not byte streams.)
-
-    To send a message, do outChan.put(msg).
-
-    To close the connection, close or seal either Chan.
-    - close() will close it instantly, or
-    - seal() will close it after the queue is empty.
-
-    Generally, if one chan is closed the other one will also become closed.
-    TODO: whose job is it to hook up all the close events?  Transports or PeerConnections?
-
-    If the connection has a network error, both chans will be close()'d.
-
-    Check the status of the connection with inChan.isClosed or outChan.isClosed.
-*/
-export interface ChanPair<T> {
-    inChan: Chan<T>;
-    outChan: Chan<T>;
-}
-
 //--------------------------------------------------------------------------------
-
 /*
     Either side of a connection can send any of these messages in any order,
     but only certain orders will make sense; the rest will be ignored with warnings.
@@ -40,7 +16,7 @@ export interface ChanPair<T> {
 
     * REQUEST --> RESPONSE (with data or with an error)
 
-    * // TODO: stream-related message types
+    * // TODO: stream-related message types: start, cancel, data, end, etc
 */
 
 export type MessageKind =
@@ -80,22 +56,39 @@ export type Message =
     | MessageResponseWithError;
 
 //--------------------------------------------------------------------------------
-
 /*
-    A PeerConnection wraps around a transport (e.g. a channel pair)
+    A network transport is made of a pair of Chans,
+    one for incoming messages and one for outgoing messages.
+    (These are object streams, not byte streams.)
+
+    To send a message, do outChan.put(msg).
+
+    To close the connection, close or seal either Chan.
+    - close() will close it instantly, or
+    - seal() will close it after the queue is empty.
+
+    Or you can close the Transport.  In any case, the fate of the Chans
+    and the Transport are linked -- close one and they all close.
+
+    If the connection has a network error, everything will be closed.
+*/
+export interface ITransport<T> {
+    inChan: Chan<T>;
+    outChan: Chan<T>;
+    get isClosed(): boolean;
+    close(): void;
+    onClose(cb: Thunk): Thunk;
+}
+
+//--------------------------------------------------------------------------------
+/*
+    A PeerConnection wraps around a Transport (e.g. a pair of Chans)
     and helps you send and receive Messages over it, and close it.
 
-    The flow of closing things can either be
-    * one of the channels is closed --> peerConnection gets closed --> the other channel gets closed
-    * or peerConnection gets closed --> it closes both of the channels
-
-    Closing things is generally idempotent (safe to do more than once) -- it's ignored
-    when something is already closed.
-    So we don't have to worry much about who is supposed to close who, because it
-    can't cause an infinite recursion.  The closure just spreads through everything.
+    If anything becomes closed, they all become closed: PeerConnection, Transport, and both Chans.
 */
 export interface IPeerConnection {
-    // constructor is given a ChanPair
+    // constructor is given a Transport and any other options like urls and timeouts
 
     notify(method: string, ...args: any[]): Promise<void>;
     onNotify(cb: (msg: MessageNotify) => void): Thunk;
@@ -106,9 +99,7 @@ export interface IPeerConnection {
     // startStream
     // handleStream
 
-    // Stop accepting new data but let the existing buffers drain, then close.
-    seal(): void;
-    // Close hard, right now.
+    get isClosed(): boolean;
     close(): void;
     onClose(cb: Thunk): Thunk;
 }

@@ -1,16 +1,16 @@
 import t from 'tap';
 
 import { sleep } from '../lib/util';
-import { makeTransportLocal } from '../lib/transportLocal';
+import { makeTransportLocalPair } from '../lib/transportLocal';
 import { PeerConnection } from '../lib/peerConnection';
 
 let log = console.log;
 
 t.test('local transport', async (t: any) => {
 
-    let [ chanPair1, chanPair2 ] = makeTransportLocal();
-    let peer1 = new PeerConnection(chanPair1);
-    let peer2 = new PeerConnection(chanPair2);
+    let [ transport1, transport2 ] = makeTransportLocalPair();
+    let peer1 = new PeerConnection(transport1);
+    let peer2 = new PeerConnection(transport2);
 
     let events: string[] = [];
     peer2.onNotify((msg) => {
@@ -40,16 +40,19 @@ t.test('local transport', async (t: any) => {
     events.push(`...peer1 did request.  got ${sixtysix}`);
 
     await sleep(50);
-    events.push('');
-    events.push('peer1 will seal...');
-    peer1.seal();
-    events.push('...peer1 did seal');
-
-    await sleep(50);
+    t.equal(peer1.isClosed, false, 'peer1 is not closed yet');
     events.push('');
     events.push('peer2 will close...');
     peer2.close();
     events.push('...peer2 did close');
+    t.equal(peer1.isClosed, true, 'peer1 is closed');
+    t.equal(peer2.isClosed, true, 'peer2 is closed');
+    t.equal(peer1._transport.isClosed, true, 'peer1.transport is closed');
+    t.equal(peer2._transport.isClosed, true, 'peer2.transport is closed');
+    t.equal(peer1._transport.inChan.isClosed, true, 'peer1.transport.inChan is closed');
+    t.equal(peer1._transport.outChan.isClosed, true, 'peer1.transport.outChan is closed');
+    t.equal(peer2._transport.inChan.isClosed, true, 'peer2.transport.inChan is closed');
+    t.equal(peer2._transport.outChan.isClosed, true, 'peer2.transport.outChan is closed');
 
     await sleep(50);
     events.push('');
@@ -82,9 +85,9 @@ t.test('local transport', async (t: any) => {
 
 t.test('local transport: error handling', async (t: any) => {
 
-    let [ chanPair1, chanPair2 ] = makeTransportLocal();
-    let peer1 = new PeerConnection(chanPair1);
-    let peer2 = new PeerConnection(chanPair2);
+    let [ transport1, transport2 ] = makeTransportLocalPair();
+    let peer1 = new PeerConnection(transport1);
+    let peer2 = new PeerConnection(transport2);
 
     let events: string[] = [];
     peer2.onRequest(async (method: string, ...args: any[]) => {

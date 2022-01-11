@@ -1,13 +1,9 @@
 import t from 'tap';
 
 import { sleep } from '../lib/util';
-import { makeTransportLocal } from '../lib/transportLocal';
 import { PeerConnection } from '../lib/peerConnection';
-import { makeTransportHttpClientSide } from '../lib/transportHttpClientSide';
-import { makeTransportHttpServerSide } from '../lib/transportHttpServerSide';
 
 let log = console.log;
-
 
 t.test('http transport', async (t: any) => {
 

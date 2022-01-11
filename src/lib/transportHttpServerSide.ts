@@ -1,7 +1,7 @@
 import { Chan } from 'concurrency-friends';
 import express from 'express';
 
-import { ChanPair, Message, Thunk } from './types';
+import { ITransport, Message, Thunk } from './types';
 import { sleep } from './util';
 
 /*
@@ -13,6 +13,7 @@ import { sleep } from './util';
     always only have one item in them right now.  TODO: accumulate batches,
     then send them up all at once.
 */
+/*
 export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { stopServer: Thunk } => {
     // Make chans with a buffer size of zero.
     // (A put() blocks until a get() happens, or vice versa).
@@ -27,7 +28,7 @@ export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { s
             let msg = await outChan.get();
             outgoingBatch.push(msg);
         }
-    }, 1);
+    }, 0);
 
     // The client wants to get the latest batch of messages.
     const app = express();
@@ -54,7 +55,7 @@ export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { s
         server = app.listen(port, () => {
             console.log(`transportHttpServerSide listening at http://localhost:${port}`)
         });
-    }, 1);
+    }, 0);
 
     let stopServer = () => {
         server?.close();
@@ -62,3 +63,4 @@ export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { s
 
     return { inChan, outChan, stopServer };
 }
+*/

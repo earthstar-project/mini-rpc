@@ -1,6 +1,6 @@
 import {
-    ChanPair,
     IPeerConnection,
+    ITransport,
     Message,
     MessageNotify,
     MessageRequest,
@@ -16,35 +16,25 @@ import {
 } from './util';
 
 export class PeerConnection implements IPeerConnection {
-    _chanPair: ChanPair<Message>;
+    _transport: ITransport<Message>;
     _notifyCbs: Set<any> = new Set();
     _requestCbs: Set<any> = new Set();
     _closeCbs: Set<any> = new Set();
     _isClosed: boolean = false;
     _deferredRequests: Map<string, Deferred<MessageResponse>> = new Map(); // keys are ids
 
-    constructor(chanPair: ChanPair<Message>) {
-        this._chanPair = chanPair;
+    constructor(transport: ITransport<Message>) {
+        this._transport = transport;
+        this._transport.onClose(() => { this.close(); });
 
         // Set up message handlers.
         // This infinite loop runs in its own thread
         // and pulls from the inChan until the inChan is closed.
-
-        // If either channel in the pair is closed, stop the thread.
-        let handleClose = () => {
-            if (!this._isClosed) {
-                this._isClosed = true;
-                for (let cb of this._closeCbs) { cb(); }
-            }
-        }
-        this._chanPair.inChan.onClose.subscribe(handleClose);
-        this._chanPair.outChan.onClose.subscribe(handleClose);
-
         setTimeout(async () => {
             while (!this._isClosed) {
                 let msg: Message;
                 try {
-                    msg = await this._chanPair.inChan.get();
+                    msg = await this._transport.inChan.get();
                 } catch(err) {
                     // inChan was closed.  End the thread.
                     return;
@@ -59,33 +49,37 @@ export class PeerConnection implements IPeerConnection {
                     for (const cb of this._requestCbs) {
                         try {
                             const data = await cb(msg.method, ...msg.args);
+                            // successful call to the onRequest callback
                             let response: MessageResponseWithData = {
                                 kind: 'RESPONSE',
                                 id: msg.id,
                                 data
                             };
-                            await this._chanPair.outChan.put(response);
+                            await this._transport.outChan.put(response);
                         } catch (error) {
+                            // error in the onRequest callback
                             let response: MessageResponseWithError = {
                                 kind: 'RESPONSE',
                                 id: msg.id,
                                 error
                             };
-                            await this._chanPair.outChan.put(response);
+                            await this._transport.outChan.put(response);
                         }
                     }
                 } else if (msg.kind === 'RESPONSE') {
-                    // Got a response back, match it up with the original request
+                    // Got a response back, match it up with the original request promise and resolve it
                     const deferred = this._deferredRequests.get(msg.id);
                     if (deferred === undefined) {
                         console.error('WARNING: unexpected response id:', msg.id);
                     } else {
+                        this._deferredRequests.delete(msg.id);
                         if ('data' in msg) {
                             deferred.resolve(msg.data);
                         } else if ('error' in msg) {
                             deferred.reject(msg.error);
                         } else {
                             console.error('WARNING: malformed response', msg);
+                            deferred.reject('malformed response');
                         }
                     }
                 } else {
@@ -101,7 +95,7 @@ export class PeerConnection implements IPeerConnection {
             method,
             args,
         };
-        await this._chanPair.outChan.put(msg);
+        await this._transport.outChan.put(msg);
     }
     onNotify(cb: (msg: MessageNotify) => void): Thunk {
         this._notifyCbs.add(cb);
@@ -112,7 +106,7 @@ export class PeerConnection implements IPeerConnection {
         const id = makeId();
         // TODO: we could accumulate a lot of leftover deferreds here
         // if the other side is not responding.  We should occasionally
-        // remove old ones.  We'd have to track the time they were created.
+        // remove old ones.  (We'd have to track the time they were created.)
         let deferred = makeDeferred<MessageResponse>();
         this._deferredRequests.set(id, deferred);
         const msg: MessageRequest = {
@@ -121,7 +115,7 @@ export class PeerConnection implements IPeerConnection {
             method,
             args,
         };
-        await this._chanPair.outChan.put(msg);
+        await this._transport.outChan.put(msg);
         return deferred.promise;
     }
     onRequest(cb: (method: string, ...args: any[]) => Promise<any>): Thunk {
@@ -129,14 +123,15 @@ export class PeerConnection implements IPeerConnection {
         return () => { this._requestCbs.delete(cb); }
     }
 
-    seal() {
-        this._chanPair.inChan.seal();
-        this._chanPair.outChan.seal();
+    get isClosed() {
+        return this._isClosed;
     }
     close() {
-        // This will trigger onClose via a roundabout trip through chan.onClose
-        this._chanPair.inChan.close();
-        this._chanPair.outChan.close();
+        if (!this._isClosed) {
+            for (let cb of this._closeCbs) { cb(); }
+        }
+        this._isClosed = true;
+        this._transport.close();
     }
     onClose(cb: Thunk): Thunk {
         this._closeCbs.add(cb);

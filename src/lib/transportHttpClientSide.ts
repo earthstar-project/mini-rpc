@@ -1,89 +1,91 @@
 import { Chan } from 'concurrency-friends';
 import fetch from 'cross-fetch';
 
-import { ChanPair, Message } from './types';
+import { ITransport, Message, Thunk } from './types';
 import { sleep } from './util';
 
 /*
     Make a transport which runs on the client side of an HTTP connection.
-    This is horribly inefficient right now:
-    * It sends messages up to the server by POSTing each one separately.
-    * It receives messages by polling the server every couple of seconds.
-
-    It actually sends and receives batches of messages (arrays), but they
-    always only have one item in them right now.  TODO: accumulate batches,
-    then send them up all at once.
-
-    TODO: write the corresponding server side of this.
+    This is inefficient right now:
+    Every few seconds it pushes up outgoing messages to the server with
+    a POST, and the server respons with new incoming messages for us.
+    In both directions we send batches of messages as JSON arrays.
+    If there are no messages we send empty arrays.
 */
-export let makeTransportHttpClientSide = (url: string): ChanPair<Message> => {
-    // Make chans with a buffer size of zero.
-    // (A put() blocks until a get() happens, or vice versa).
-    let inChan = new Chan<Message>(0);
-    let outChan = new Chan<Message>(0);
+export class TransportHttpClientSide implements ITransport<Message> {
+    inChan: Chan<Message>;
+    outChan: Chan<Message>;
+    _isClosed: boolean = false;
+    _onCloseCbs: Set<Thunk> = new Set();
+    _url: string;
+    constructor(url: string) {
+        this._url = url;
 
-    // Outgoing: user sent a message. POST it up to server.
-    // If we have errors, keep polling in case we were offline but have since
-    // gone online again.
-    // TODO: if we can't send it right now, save it to a buffer.
-    outChan.forEach(async (msg: Message) => {
-        try {
-            let res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', },
-                // Send a batch of one message (an array of length 1).
-                // TODO: collect messages into bigger batches
-                // and send once every few seconds.
-                body: JSON.stringify([msg]),
-            })
-            if (!res.ok) {
-                console.error(`ERROR: POST ${url} returned status ${res.status}`);
-                // TODO: save msg to outgoing buffer or put back into the chan (?)
-            }
-        } catch (err) {
-            console.error('ERROR while sending out:', err);
-            // TODO: save msg to outgoing buffer or put back into the chan (?)
-        }
-    });
+        // Make chans with a buffer size of zero.
+        // (A put() blocks until a get() happens, or vice versa).
+        this.inChan = new Chan<Message>(0);
+        this.outChan = new Chan<Message>(0);
+        this.inChan.onClose.subscribe(() => {this.close(); });
+        this.outChan.onClose.subscribe(() => { this.close(); });
 
-    // Incoming: start a thread to poll the server for updates with GET
-    // and push them to the user over the chan.
-    // If we have errors, keep polling in case we were offline but have since
-    // gone online again.
+        // Our strategy is: poll the server every few seconds with
+        // a POST of our outgoing messages, and it will return any
+        // messages it has batched up for us.
 
-    let isPolling: boolean = true;
-    let stopPolling = () => { isPolling = false; }
+        // Continuously pull outgoing messagaes from the outChan and put into a buffer
+        let outgoingBatch: Message[] = [];
+        this.outChan.forEach((msg: Message) => {
+            outgoingBatch.push(msg);
+        });
 
-    setTimeout(async () => {
-        while (isPolling) {
-            try {
-                let res = await fetch(url);
-                if (!res.ok) {
-                    console.error(`ERROR: GET ${url} returned status ${res.status}`);
+        // Start a new thread to poll the server
+        setTimeout(async () => {
+            while (!this._isClosed) {
+                // The fetch might take a while to complete, so we need
+                // to make a separate list of messages to send so we
+                // can correctly put them back if something fails
+                // and new messages have been put into the outgoingBatch
+                // in the meantime.
+                let batchToSendNow = [...outgoingBatch];
+                outgoingBatch = [];
+                try {
+                    // Send the outgoing messages
+                    // TODO: only send up to N outgoing messages per batch
+                    let res = await fetch(this._url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', },
+                        body: JSON.stringify([batchToSendNow]),
+                    });
+                    if (!res.ok) {
+                        throw new Error(`POST not ok: ${res.status}`);
+                    }
+                    // Ingest the batch of incoming messages that the server sent us
+                    let incomingBatch = await res.json() as Message[];
+                    for (let msg of incomingBatch) {
+                        await this.inChan.put(msg);
+                    }
+                } catch (error) {
+                    // Failed to send; put the batchToSend back into the buffer
+                    // so we don't lose anything
+                    outgoingBatch = [...outgoingBatch, ...batchToSendNow];
                 }
-                let msgs = await res.json() as Message[];
-                for (let msg of msgs) {
-                    await inChan.put(msg);
-                }
-            } catch (err) {
-                console.error('ERROR while getting incoming msgs:', err);
+                await sleep(4000);
             }
-            await sleep(1000);  // TODO: cancel can take up to this long to take effect
+        }, 0);
+    }
+    get isClosed() {
+        return this._isClosed;
+    }
+    close() {
+        if (!this._isClosed) {
+            for (let cb of this._onCloseCbs) { cb(); }
         }
-    }, 1);
-
-    // User can destroy this transport by closing either Chan,
-    // or by sealing the outChan (it will be closed after all items
-    // have been sent).
-    // This is needed to make sure the polling timer is stopped.
-    // TODO: make sure closing one chan propagates to the other chan.
-    inChan.onClose.subscribe(stopPolling);
-    outChan.onClose.subscribe(stopPolling);
-
-    return { inChan, outChan };
+        this._isClosed = true;
+        this.inChan.close();
+        this.outChan.close();
+    }
+    onClose(cb: Thunk): Thunk {
+        this._onCloseCbs.add(cb);
+        return () => { this._onCloseCbs.delete(cb); }
+    }
 }
-
-
-
-
-
