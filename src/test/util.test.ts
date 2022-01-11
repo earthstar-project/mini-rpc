@@ -1,4 +1,4 @@
-import test = require('tape');
+import t from 'tap';
 
 import {
     makeId,
@@ -7,7 +7,7 @@ import {
 
 //================================================================================
 
-test('randInt', async (t: any) => {
+t.test('randInt', async (t: any) => {
     let passed = true;
     for (let ii = 0; ii < 1000; ii++) {
         let n = randInt(3, 5);
@@ -17,7 +17,7 @@ test('randInt', async (t: any) => {
     t.end();
 });
 
-test('makeId', async (t: any) => {
+t.test('makeId', async (t: any) => {
     let passed = true;
     for (let ii = 0; ii < 1000; ii++) {
         if (makeId().length !== 18) { passed = false; }

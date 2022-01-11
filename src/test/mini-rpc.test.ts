@@ -1,4 +1,4 @@
-import test = require('tape');
+import t from 'tap';
 
 import { IPeerConnection, MessageResponseWithData, MessageResponseWithError } from '../lib/types';
 import { sleep } from '../lib/util';
@@ -7,7 +7,7 @@ import { PeerConnection } from '../lib/peerConnection';
 
 let log = console.log;
 
-test('local transport', async (t: any) => {
+t.test('local transport', async (t: any) => {
 
     let [ chanPair1, chanPair2 ] = makeTransportLocal();
     let peer1 = new PeerConnection(chanPair1);
