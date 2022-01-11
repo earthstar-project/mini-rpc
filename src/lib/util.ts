@@ -46,4 +46,4 @@ export let randInt = (lo: number, hi: number): number =>
     lo + Math.floor(Math.random() * (hi-lo));
 
 export let makeId = (): string =>
-    ('' + randInt(0, 999999999999999)).padStart(18, '0');
+    ('' + randInt(0, 999999999999999)).padStart(15, '0');

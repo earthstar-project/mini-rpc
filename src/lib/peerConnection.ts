@@ -1,4 +1,3 @@
-import { Deferred } from 'concurrency-friends';
 import {
     ChanPair,
     IPeerConnection,
@@ -6,9 +5,13 @@ import {
     MessageNotify,
     MessageRequest,
     MessageResponse,
-    Thunk
+    Thunk,
 } from './types';
-import { makeDeferred, makeId } from './util';
+import {
+    Deferred,
+    makeDeferred,
+    makeId,
+} from './util';
 
 export class PeerConnection implements IPeerConnection {
     _chanPair: ChanPair<Message>;
