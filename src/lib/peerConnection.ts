@@ -5,6 +5,8 @@ import {
     MessageNotify,
     MessageRequest,
     MessageResponse,
+    MessageResponseWithData,
+    MessageResponseWithError,
     Thunk,
 } from './types';
 import {
@@ -55,8 +57,22 @@ export class PeerConnection implements IPeerConnection {
                 } else if (msg.kind === 'REQUEST') {
                     // Got a request, reply with a response
                     for (const cb of this._requestCbs) {
-                        const messageResponse = await cb(msg);
-                        await this._chanPair.outChan.put(messageResponse);
+                        try {
+                            const data = await cb(msg.method, ...msg.args);
+                            let response: MessageResponseWithData = {
+                                kind: 'RESPONSE',
+                                id: msg.id,
+                                data
+                            };
+                            await this._chanPair.outChan.put(response);
+                        } catch (error) {
+                            let response: MessageResponseWithError = {
+                                kind: 'RESPONSE',
+                                id: msg.id,
+                                error
+                            };
+                            await this._chanPair.outChan.put(response);
+                        }
                     }
                 } else if (msg.kind === 'RESPONSE') {
                     // Got a response back, match it up with the original request
@@ -109,7 +125,7 @@ export class PeerConnection implements IPeerConnection {
         await this._chanPair.outChan.put(msg);
         return deferred.promise;
     }
-    onRequest(cb: (request: MessageRequest) => Promise<MessageResponse>): Thunk {
+    onRequest(cb: (method: string, ...args: any[]) => Promise<any>): Thunk {
         this._requestCbs.add(cb);
         return () => { this._requestCbs.delete(cb); }
     }

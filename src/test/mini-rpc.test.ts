@@ -18,17 +18,12 @@ t.test('local transport', async (t: any) => {
         log('peer2 onNotify:', msg);
         events.push('--- peer2 was notified');
     });
-    peer2.onRequest(async (request) => {
+    peer2.onRequest(async (method: string, ...args: any[]) => {
         events.push('--- peer2 got request');
-        let num = request.args[0];
-        let doubled = num * 2;
-        let response: MessageResponseWithData = {
-            kind: 'RESPONSE',
-            id: request.id,
-            data: doubled,
-        }
-        log('peer2 onRequest', request, '-->', response);
-        return response;
+        let num = args[0];
+        let answer = num * 2;
+        log('peer2 onRequest', method, args, '-->', answer);
+        return answer;
     });
     peer1.onClose(() => { events.push('--- peer1 closed'); });
     peer2.onClose(() => { events.push('--- peer2 closed'); });
@@ -80,7 +75,7 @@ t.test('local transport', async (t: any) => {
         '...peer2 did close',
         ''
     ]
-    t.deepEqual(events, expectedEvents, 'events are in expected order');
+    t.same(events, expectedEvents, 'events are in expected order');
 
     t.end();
 });

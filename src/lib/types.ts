@@ -60,7 +60,7 @@ export interface IPeerConnection {
     onNotify(cb: (msg: MessageNotify) => void): Thunk;
 
     request(method: string, ...args: any[]): Promise<any>;
-    onRequest(cb: (request: MessageRequest) => Promise<MessageResponse>): Thunk;
+    onRequest(cb: (method: string, ...args: any[]) => Promise<any>): Thunk;
 
     // startStream
     // handleStream
