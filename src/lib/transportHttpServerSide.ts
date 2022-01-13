@@ -1,34 +1,34 @@
 import { Chan } from 'concurrency-friends';
 import express from 'express';
 
-import { ITransport, Message, Thunk } from './types';
+import { ITransport, Envelope, Thunk } from './types';
 import { sleep } from './util';
 
 /*
     Make a transport which runs on the server side of an HTTP connection.
-    * It receives batches of messages via POST
-    * It replies with a batch of messages it's queued up for that client.
-    Message batches are JSON arrays of messages.
+    * It receives batches of envelopes via POST
+    * It replies with a batch of envelopes it's queued up for that client.
+    Envelope batches are JSON arrays of envelopes.
 
 */
 /*
-export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { stopServer: Thunk } => {
+export let makeTransportHttpServerSide = (port: number): ChanPair<Envelope> & { stopServer: Thunk } => {
     // Make chans with a buffer size of zero.
     // (A put() blocks until a get() happens, or vice versa).
-    let inChan = new Chan<Message>(0);
-    let outChan = new Chan<Message>(0);
+    let inChan = new Chan<Envelope>(0);
+    let outChan = new Chan<Envelope>(0);
 
-    let outgoingBatch: Message[] = [];
+    let outgoingBatch: Envelope[] = [];
 
-    // The user has given us messages to send via the outChan.
+    // The user has given us envelopes to send via the outChan.
     setTimeout(async () => {
         while (true) {
-            let msg = await outChan.get();
-            outgoingBatch.push(msg);
+            let env = await outChan.get();
+            outgoingBatch.push(env);
         }
     }, 0);
 
-    // The client wants to get the latest batch of messages.
+    // The client wants to get the latest batch of envelopes.
     const app = express();
     app.use(express.json({ limit: '10mb' }));
     app.get('/', (req, res) => {
@@ -36,12 +36,12 @@ export let makeTransportHttpServerSide = (port: number): ChanPair<Message> & { s
         outgoingBatch = [];
     })
 
-    // The client is giving us messages.
+    // The client is giving us envelopes.
     // push them into the inChan.
     app.post('/', async (req, res) => {
-        const incomingBatch: Message[] = req.body;
-        for (let msg of incomingBatch) {
-            await inChan.put(msg);
+        const incomingBatch: Envelope[] = req.body;
+        for (let env of incomingBatch) {
+            await inChan.put(env);
         }
         res.sendStatus(200);
     });

@@ -4,68 +4,68 @@ export type Thunk = () => void;
 
 //--------------------------------------------------------------------------------
 /*
-    Either side of a connection can send any of these messages in any order,
+    Either side of a connection can send any of these envelopes in any order,
     but only certain orders will make sense; the rest will be ignored with warnings.
 
     For example either side can send a REQUEST, and the other side should reply
     with a RESPONSE.
 
-    Expected sequences of messages
+    Expected sequences of envelopes
 
     * NOTIFY (no response needed)
 
     * REQUEST --> RESPONSE (with data or with an error)
 
-    * // TODO: stream-related message types: start, cancel, data, end, etc
+    * // TODO: stream-related envelopes types: start, cancel, data, end, etc
 */
 
-export type MessageKind =
+export type EnvelopeKind =
     'NOTIFY'
     | 'REQUEST'
     | 'RESPONSE';
 
-export interface MessageNotify {
+export interface EnvelopeNotify {
     kind: 'NOTIFY',
     fromPeerId: string,
     method: string,
     args: any[],
 }
-export interface MessageRequest {
+export interface EnvelopeRequest {
     kind: 'REQUEST',
     fromPeerId: string,
     id: string,
     method: string,
     args: any[],
 }
-export interface MessageResponseWithData {
+export interface EnvelopeResponseWithData {
     kind: 'RESPONSE',
     fromPeerId: string,
     id: string,
     data: any,
 }
-export interface MessageResponseWithError {
+export interface EnvelopeResponseWithError {
     kind: 'RESPONSE',
     fromPeerId: string,
     id: string,
     error: any,
 }
-export type MessageResponse =
-    MessageResponseWithData
-    | MessageResponseWithError;
+export type EnvelopeResponse =
+    EnvelopeResponseWithData
+    | EnvelopeResponseWithError;
 
-export type Message =
-    MessageNotify
-    | MessageRequest
-    | MessageResponseWithData
-    | MessageResponseWithError;
+export type Envelope =
+    EnvelopeNotify
+    | EnvelopeRequest
+    | EnvelopeResponseWithData
+    | EnvelopeResponseWithError;
 
 //--------------------------------------------------------------------------------
 /*
     A network transport is made of a pair of Chans,
-    one for incoming messages and one for outgoing messages.
+    one for incoming envelopes and one for outgoing envelopes.
     (These are object streams, not byte streams.)
 
-    To send a message, do outChan.put(msg).
+    To send a envelope, do outChan.put(env).
 
     To close the connection, close or seal either Chan.
     - close() will close it instantly, or
@@ -87,7 +87,7 @@ export interface ITransport<T> {
 //--------------------------------------------------------------------------------
 /*
     A PeerConnection wraps around a Transport (e.g. a pair of Chans)
-    and helps you send and receive Messages over it, and close it.
+    and helps you send and receive Envelopes over it, and close it.
 
     If anything becomes closed, they all become closed: PeerConnection, Transport, and both Chans.
 */
@@ -97,7 +97,7 @@ export interface IPeerConnection {
     get peerId(): string;  // a random UUID, chosen at every startup
 
     notify(method: string, ...args: any[]): Promise<void>;
-    onNotify(cb: (msg: MessageNotify) => void): Thunk;
+    onNotify(cb: (env: EnvelopeNotify) => void): Thunk;
 
     request(method: string, ...args: any[]): Promise<any>;
     onRequest(cb: (method: string, ...args: any[]) => Promise<any>): Thunk;

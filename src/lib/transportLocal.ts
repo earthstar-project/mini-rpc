@@ -2,7 +2,7 @@ import { Chan } from 'concurrency-friends';
 
 import {
     ITransport,
-    Message,
+    Envelope,
     Thunk,
 } from './types';
 import { logTransport } from './util';
@@ -12,12 +12,12 @@ import { logTransport } from './util';
     If either Chan becomes closed, this will close the other one, and close itself.
     Or you can close this Transport and it will close the Chans for you.
 */
-export class TransportBasic implements ITransport<Message> {
-    inChan: Chan<Message>;
-    outChan: Chan<Message>;
+export class TransportBasic implements ITransport<Envelope> {
+    inChan: Chan<Envelope>;
+    outChan: Chan<Envelope>;
     _isClosed: boolean = false;
     _onCloseCbs: Set<Thunk> = new Set();
-    constructor(inChan: Chan<Message>, outChan: Chan<Message>) {
+    constructor(inChan: Chan<Envelope>, outChan: Chan<Envelope>) {
         logTransport('constructor');
         this.inChan = inChan;
         this.outChan = outChan;
@@ -53,11 +53,11 @@ export class TransportBasic implements ITransport<Message> {
     The input of one is the output of the other, and vice versa.
     This is mostly useful for testing.
 */
-export let makeTransportLocalPair = (): [ITransport<Message>, ITransport<Message>] => {
+export let makeTransportLocalPair = (): [ITransport<Envelope>, ITransport<Envelope>] => {
     // Make chans with a buffer size of zero.
     // (A put() blocks until a get() happens, or vice versa).
-    const chan1 = new Chan<Message>(0);
-    const chan2 = new Chan<Message>(0);
+    const chan1 = new Chan<Envelope>(0);
+    const chan2 = new Chan<Envelope>(0);
     return [
         new TransportBasic(chan1, chan2),
         new TransportBasic(chan2, chan1),

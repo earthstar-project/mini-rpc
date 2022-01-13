@@ -18,8 +18,8 @@ t.test('local transport: basics', async (t: any) => {
 
     logMain('/--subscribing to peer events');
     let events: string[] = [];
-    peer2.onNotify((msg) => {
-        logMain('peer2 onNotify:', msg);
+    peer2.onNotify((env) => {
+        logMain('peer2 onNotify:', env);
         events.push('--- peer2 was notified');
     });
     peer2.onRequest(async (method: string, ...args: any[]) => {
