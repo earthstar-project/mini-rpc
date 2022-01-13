@@ -1,4 +1,6 @@
 import { Chan } from 'concurrency-friends';
+import { SuperbusMap } from 'superbus-map';
+import { Atom } from './atom';
 
 export type Thunk = () => void;
 
@@ -19,6 +21,8 @@ export type Thunk = () => void;
     * // TODO: stream-related envelopes types: start, cancel, data, end, etc
 */
 
+export type OpenOrClosed = 'OPEN' | 'CLOSED';
+
 export type EnvelopeKind =
     'NOTIFY'
     | 'REQUEST'
@@ -26,27 +30,28 @@ export type EnvelopeKind =
 
 export interface EnvelopeNotify {
     kind: 'NOTIFY',
-    fromPeerId: string,
+    fromGardenId: string,
+    envelopeId: string,
     method: string,
     args: any[],
 }
 export interface EnvelopeRequest {
     kind: 'REQUEST',
-    fromPeerId: string,
-    id: string,
+    fromGardenId: string,
+    envelopeId: string,
     method: string,
     args: any[],
 }
 export interface EnvelopeResponseWithData {
     kind: 'RESPONSE',
-    fromPeerId: string,
-    id: string,
+    fromGardenId: string,
+    envelopeId: string,
     data: any,
 }
 export interface EnvelopeResponseWithError {
     kind: 'RESPONSE',
-    fromPeerId: string,
-    id: string,
+    fromGardenId: string,
+    envelopeId: string,
     error: any,
 }
 export type EnvelopeResponse =
@@ -109,3 +114,47 @@ export interface IPeerConnection {
     close(): void;
     onClose(cb: Thunk): Thunk;
 }
+
+//--------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------
+
+export interface IConnectionGarden {
+    // constructor can take an url/port to serve on, or urls to connect to
+    connections: SuperbusMap<string, Connection>,
+    gardenId: string,
+    close: Thunk,
+}
+
+export type ConnectionStatus =
+    'CONNECTING'
+    | 'OPEN'
+    | 'ERROR'
+    | 'CLOSED'
+
+export interface Connection {
+    otherGardenId: string | null,
+    otherUrlOrIp?: string,  // or ip address if known
+    status: Atom<ConnectionStatus>,
+    inStream: Chan<Envelope>,
+    outStream: Chan<Envelope>,
+    close: Thunk;
+}
+
+export interface IPostman {
+    garden: IConnectionGarden;
+    status: Atom<OpenOrClosed>;
+
+    // constructor takes a "methods" object which has
+    // the notify/request methods in it.
+    // Any method can be called via notify or request, the only
+    // difference is whether we wait for a response to come back or not.
+
+    notify(method: string, ...args: any[]): Promise<void>;
+    request(method: string, ...args: any[]): Promise<any>;
+
+    // startStream
+    // handleStream
+
+    close(): void;
+}
+

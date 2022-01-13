@@ -63,8 +63,8 @@ export class PeerConnection implements IPeerConnection {
                             logPeer(' - handler: cb was successful, sending a RESPONSE with data');
                             let response: EnvelopeResponseWithData = {
                                 kind: 'RESPONSE',
-                                fromPeerId: this._peerId,
-                                id: env.id,
+                                fromGardenId: this._peerId,
+                                envelopeId: env.envelopeId,
                                 data
                             };
                             await this._transport.outChan.put(response);
@@ -73,8 +73,8 @@ export class PeerConnection implements IPeerConnection {
                             logPeer('    handler: cb was a fail, sending a RESPONSE with error');
                             let response: EnvelopeResponseWithError = {
                                 kind: 'RESPONSE',
-                                fromPeerId: this._peerId,
-                                id: env.id,
+                                fromGardenId: this._peerId,
+                                envelopeId: env.envelopeId,
                                 error
                             };
                             await this._transport.outChan.put(response);
@@ -84,12 +84,12 @@ export class PeerConnection implements IPeerConnection {
                 } else if (env.kind === 'RESPONSE') {
                     // Got a response back, match it up with the original request promise and resolve it
                     logPeer('/--handler: handling a RESPONSE.  looking up the deferred...', this.peerId);
-                    const deferred = this._deferredRequests.get(env.id);
+                    const deferred = this._deferredRequests.get(env.envelopeId);
                     if (deferred === undefined) {
-                        console.error('WARNING: unexpected response id:', env.id);
+                        console.error('WARNING: unexpected response id:', env.envelopeId);
                     } else {
                         logPeer(' - handler: resolving the deferred with the data or error...', this.peerId);
-                        this._deferredRequests.delete(env.id);
+                        this._deferredRequests.delete(env.envelopeId);
                         if ('data' in env) {
                             deferred.resolve(env.data);
                         } else if ('error' in env) {
@@ -115,7 +115,8 @@ export class PeerConnection implements IPeerConnection {
     async notify(method: string, ...args: any[]): Promise<void> {
         const env: EnvelopeNotify = {
             kind: 'NOTIFY',
-            fromPeerId: this._peerId,
+            fromGardenId: this._peerId,
+            envelopeId: makeId(),
             method,
             args,
         };
@@ -127,16 +128,16 @@ export class PeerConnection implements IPeerConnection {
     }
 
     async request(method: string, ...args: any[]): Promise<any> {
-        const id = makeId();
+        const envelopeId = makeId();
         // TODO: we could accumulate a lot of leftover deferreds here
         // if the other side is not responding.  We should occasionally
         // remove old ones.  (We'd have to track the time they were created.)
         let deferred = makeDeferred<EnvelopeResponse>();
-        this._deferredRequests.set(id, deferred);
+        this._deferredRequests.set(envelopeId, deferred);
         const env: EnvelopeRequest = {
             kind: 'REQUEST',
-            fromPeerId: this._peerId,
-            id,
+            fromGardenId: this._peerId,
+            envelopeId,
             method,
             args,
         };
