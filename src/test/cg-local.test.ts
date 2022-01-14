@@ -15,8 +15,6 @@ t.test('local garden: basics', async (t: any) => {
 
     logMain('constructing local garden pair');
     let [ garden1, garden2 ] = makeLocalGardenPair();
-    let conn1to2 = [...garden1.connections.values()][0];
-    let conn2to1 = [...garden2.connections.values()][0];
     let postman1 = new Postman(garden1, methods);
     let postman2 = new Postman(garden2, methods);
     let gid1 = garden1.gardenId;

@@ -118,31 +118,10 @@ export interface IPeerConnection {
 //--------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------
 
-export interface IConnectionGarden {
-    // constructor can take an url/port to serve on, or urls to connect to
-    connections: SuperbusMap<string, Connection>,
-    gardenId: string,
-    close: Thunk,
-}
-
-export type ConnectionStatus =
-    'CONNECTING'
-    | 'OPEN'
-    | 'ERROR'
-    | 'CLOSED'
-
-export interface Connection {
-    otherGardenId: string | null,
-    otherUrlOrIp?: string,  // or ip address if known
-    status: Atom<ConnectionStatus>,
-    inStream: Chan<Envelope>,
-    outStream: Chan<Envelope>,
-    close: Thunk;
-}
-
 export interface IPostman {
     garden: IConnectionGarden;
     status: Atom<OpenOrClosed>;
+    onReceive: (env: Envelope) => Promise<void>,
 
     // constructor takes a "methods" object which has
     // the notify/request methods in it.
@@ -157,4 +136,28 @@ export interface IPostman {
 
     close(): void;
 }
+
+export interface IConnectionGarden {
+    // constructor can take an url/port to serve on, or urls to connect to
+    connections: SuperbusMap<string, Connection>,
+    gardenId: string,
+    status: Atom<OpenOrClosed>,
+    close: Thunk,
+}
+
+export type ConnectionStatus =
+    'CONNECTING'
+    | 'OPEN'
+    | 'ERROR'
+    | 'CLOSED'
+
+export interface Connection {
+    otherGardenId: string | null,
+    otherUrlOrIp?: string,  // or ip address if known
+    status: Atom<ConnectionStatus>,
+    send: (env: Envelope) => Promise<void>,
+    onReceive: (env: Envelope) => Promise<void>,
+    close: Thunk;
+}
+
 
